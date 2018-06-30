@@ -1,0 +1,34 @@
+{
+  "name": "linsql",
+  "version": "0.0.1",
+  "description": "Language integrated SQL execution engine for Javascript, similiar to LINQ",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "npm run jest && npm run tslint",
+    "jest": "jest --forceExit --coverage --verbose",
+    "build": "tsc",
+    "watch": "tsc -w",
+    "tslint": "tslint -c tslint.js -p tsconfig.json"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yoo2001818/linsql.git"
+  },
+  "author": "yoo2001818",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/yoo2001818/linsql/issues"
+  },
+  "homepage": "https://github.com/yoo2001818/linsql#readme",
+  "devDependencies": {
+    "@types/jest": "^22.2.3",
+    "@types/node": "^10.0.4",
+    "jest": "^22.4.3",
+    "ts-jest": "^22.4.5",
+    "ts-node": "^6.0.3",
+    "tslint": "^5.10.0",
+    "tslint-config-standard": "^7.0.0",
+    "typescript": "^2.8.3"
+  },
+  "dependencies": {}
+}
