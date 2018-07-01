@@ -14,8 +14,9 @@
         "src/types/*"
       ]
     },
+    "downlevelIteration": true,
     "lib": [
-      "es6", "es7"
+      "es6", "es7", "esnext.asynciterable"
     ]
   },
   "include": [

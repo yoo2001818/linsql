@@ -30,5 +30,7 @@
     "tslint-config-standard": "^7.0.0",
     "typescript": "^2.8.3"
   },
-  "dependencies": {}
+  "dependencies": {
+    "yasqlp": "^0.1.3"
+  }
 }
