@@ -1,5 +1,67 @@
 declare module 'yasqlp' {
-  export type Expression = any;
+  export type NullValue = { type: 'null' };
+  export type DefaultValue = { type: 'default' };
+  export type ColumnValue = {
+    type: 'column',
+    table?: null | string,
+    name: string,
+  };
+  export type WildcardValue = {
+    type: 'wildcard',
+    table?: null | string,
+  };
+  export type BooleanValue = { type: 'boolean', value: boolean };
+  export type NumberValue = { type: 'number', value: number };
+  export type StringValue = { type: 'string', value: string };
+  export type CaseExpression = {
+    type: 'case',
+    value?: null | Expression,
+    matches: { query: Expression, value: Expression }[],
+    else?: null | Expression,
+  };
+  export type FunctionExpression = {
+    type: 'function',
+    name: string,
+    qualifier: null | 'distinct' | 'all',
+    args: Expression[],
+  };
+  export type PrimaryExpression = ColumnValue | WildcardValue | BooleanValue |
+    NumberValue | StringValue | CaseExpression | FunctionExpression;
+  export type BinaryExpression = {
+    type: 'binary',
+    op: '<<' | '>>' | '+' | '-' | '*' | '/' | '%' | '^',
+    left: Expression,
+    right: Expression,
+  };
+  export type InExpression = {
+    type: 'in',
+    target: Expression,
+    values: { type: 'list', values: Expression[] } | SelectStatement,
+  };
+  export type BetweenExpression = {
+    type: 'between',
+    target: Expression,
+    min: Expression,
+    max: Expression,
+  };
+  export type CompareExpression = {
+    type: 'compare',
+    op: '!=' | '==' | '>=' | '>' | '<=' | '<' | 'is' | 'like',
+    left: Expression,
+    right: Expression,
+  };
+  export type UnaryExpression = {
+    type: 'unary',
+    op: '!' | '-' | '~',
+    value: Expression,
+  };
+  export type LogicalExpression = {
+    type: 'logical',
+    op: '||' | '&&',
+    values: Expression[],
+  };
+  export type Expression = PrimaryExpression | BinaryExpression | InExpression |
+    BetweenExpression | CompareExpression | UnaryExpression | LogicalExpression;
   export type SelectColumn = {
     qualifier?: null | 'distinct' | 'all',
     name?: null | string,
@@ -34,11 +96,12 @@ declare module 'yasqlp' {
   export type SelectUnionStatement = SelectCoreStatement & {
     unionType: 'union' | 'unionAll' | 'intersect' | 'except',
   };
-  export type SelectStatement = SelectCoreStatement & {
+  export type SelectBasicStatement = SelectCoreStatement & {
     order: null | OrderByRef[],
     limit: null | { limit: null | number, offset: null | number },
     unions?: null | SelectUnionStatement[],
   };
+  export type SelectStatement = SelectBasicStatement | SelectUnionStatement;
   export type InsertValues = {
     type: 'values',
     values: Expression[][],
