@@ -10,6 +10,17 @@ implement iterators by hand.
 Or, otherwise, we can return a list of rows in a single Promise object. This is
 in spec as async iterators are in ES2018? ES2019?
 
+### Iterator types
+- input
+- filter
+- map (append new calculated columns)
+- sort (order by)
+- aggregate (group by)
+- hashJoin
+- nestedJoin
+- subquery
+- union / intersect / unionAll / except
+
 ## Selection
 Linsql doesn't have any indices to work with, so we can just run full scan
 for all the queries.
@@ -18,6 +29,11 @@ for all the queries.
 Most of the queries can be converted to JavaScript without any hassle. To gain
 maximum speed by not reading AST every time, we should compile each query
 into native Javascript.
+
+### Where column problem
+Sometimes column has to be processed before WHERE, in case like
+`SELECT a + 1 as a FROM ... WHERE a = 1`. This is not really a problem since
+mapping can be done easily, with retaining original row data (using symbol?).
 
 ### Join
 However, nested queries and joins are not the case, and we have to take care of
