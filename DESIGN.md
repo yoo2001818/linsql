@@ -12,6 +12,7 @@ in spec as async iterators are in ES2018? ES2019?
 
 ### Iterator types
 - input
+- output
 - filter
 - map (append new calculated columns)
 - sort (order by)
@@ -34,6 +35,15 @@ into native Javascript.
 Sometimes column has to be processed before WHERE, in case like
 `SELECT a + 1 as a FROM ... WHERE a = 1`. This is not really a problem since
 mapping can be done easily, with retaining original row data (using symbol?).
+
+```js
+// Original data
+{ a: { id: 123, firstName: 'John', lastName: 'Doe' } }
+// Mapped data
+{ __result: { id: 123, name: 'John Doe' }, a: { id: 123, ... } }
+// Final data
+{ id: 123, name: 'John Doe' }
+``
 
 ### Join
 However, nested queries and joins are not the case, and we have to take care of

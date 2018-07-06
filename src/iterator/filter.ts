@@ -1,5 +1,6 @@
 import { Expression } from 'yasqlp';
 import { Row } from '../row';
+import compileExpression from '../util/compileExpression';
 
 export default class FilterIterator implements AsyncIterableIterator<Row[]> {
   input: AsyncIterator<Row[]>;
