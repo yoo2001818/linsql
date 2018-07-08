@@ -48,4 +48,8 @@ describe('compileExpression', () => {
     expect(getCode(getWhere(`SELECT 1 WHERE COUNT(abc);`)))
       .toBe('return row._aggr[\'count-row._output[\\\'abc\\\']\'];');
   });
+  it('should compile functions', () => {
+    expect(getCode(getWhere(`SELECT 1 WHERE ATAN2(-15, -5);`)))
+      .toBe('return methods[\'atan2\'](-15, -5);');
+  });
 });

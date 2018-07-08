@@ -3,6 +3,9 @@ import { Expression, LogicalExpression, UnaryExpression, CompareExpression,
   NumberValue, BooleanValue, ColumnValue, AggregateExpression, FunctionExpression, CaseExpression,
 } from 'yasqlp';
 import { Row } from '../row';
+import METHODS from './methods';
+
+type MethodTable = { [key: string]: Function };
 
 export default function compileExpression(
   expression: Expression,
@@ -55,9 +58,12 @@ const MAP_TABLE: { [key: string]: (expr: any) => string } = {
   binary: (expr: BinaryExpression) =>
     '(' + map(expr.left) + expr.op + map(expr.right) + ')',
   function: (expr: FunctionExpression) => {
-    let name = `namespace['${escape(expr.name)}']`;
-    // TODO Check validity
-    return name + '(' + expr.args.map(arg => map(arg)).join(',') + ')';
+    let name = expr.name.toLowerCase();
+    if (!(name in METHODS)) {
+      throw new Error('Unknown method ' + name);
+    }
+    let accessor = `methods['${escape(name)}']`;
+    return accessor + '(' + expr.args.map(arg => map(arg)).join(', ') + ')';
   },
   aggregation: (expr: AggregateExpression) => {
     let name = `row._aggr['${expr.name + '-' + escape(map(expr.value))}']`;
