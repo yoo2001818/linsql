@@ -22,11 +22,17 @@ declare module 'yasqlp' {
   export type FunctionExpression = {
     type: 'function',
     name: string,
-    qualifier: null | 'distinct' | 'all',
     args: Expression[],
   };
+  export type AggregateExpression = {
+    type: 'function',
+    name: string,
+    qualifier: null | 'distinct' | 'all',
+    value: Expression,
+  };
   export type PrimaryExpression = ColumnValue | WildcardValue | BooleanValue |
-    NumberValue | StringValue | CaseExpression | FunctionExpression;
+    NumberValue | StringValue | CaseExpression | FunctionExpression |
+    AggregateExpression;
   export type BinaryExpression = {
     type: 'binary',
     op: '<<' | '>>' | '+' | '-' | '*' | '/' | '%' | '^',
@@ -46,7 +52,7 @@ declare module 'yasqlp' {
   };
   export type CompareExpression = {
     type: 'compare',
-    op: '!=' | '==' | '>=' | '>' | '<=' | '<' | 'is' | 'like',
+    op: '!=' | '=' | '>=' | '>' | '<=' | '<' | 'is' | 'like',
     left: Expression,
     right: Expression,
   };
@@ -60,8 +66,13 @@ declare module 'yasqlp' {
     op: '||' | '&&',
     values: Expression[],
   };
+  export type ExistsExpression = {
+    type: 'exists',
+    value: SelectStatement,
+  };
   export type Expression = PrimaryExpression | BinaryExpression | InExpression |
-    BetweenExpression | CompareExpression | UnaryExpression | LogicalExpression;
+    BetweenExpression | CompareExpression | UnaryExpression |
+    LogicalExpression | ExistsExpression;
   export type SelectColumn = {
     qualifier?: null | 'distinct' | 'all',
     name?: null | string,
@@ -129,6 +140,7 @@ declare module 'yasqlp' {
     order: null | OrderByRef[],
     limit: null | { limit: null | number, offset: null | number },
   };
-  export type Statement = any;
+  export type Statement = InsertStatement | UpdateStatement | DeleteStatement |
+    SelectStatement;
   export default function parse(input: string): Statement[];
 }
