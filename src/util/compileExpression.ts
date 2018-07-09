@@ -10,7 +10,9 @@ type MethodTable = { [key: string]: Function };
 export default function compileExpression(
   expression: Expression,
 ): (row: Row) => any {
-  return new Function('row', getCode(expression)) as (row: Row) => any;
+  let result = new Function('methods', 'row', getCode(expression)) as
+    (methods: MethodTable, row: Row) => any;
+  return result.bind(null, METHODS);
 }
 
 export function getCode(expression: Expression) {
