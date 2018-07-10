@@ -1,12 +1,13 @@
 import { Expression } from 'yasqlp';
 import { Row } from '../row';
+import RowIterator from './type';
 import compileExpression from '../util/compileExpression';
 
-export default class FilterIterator implements AsyncIterableIterator<Row[]> {
-  input: AsyncIterator<Row[]>;
+export default class FilterIterator implements RowIterator {
+  input: RowIterator;
   where: Expression;
   comparator: (input: Row) => any;
-  constructor(input: AsyncIterator<Row[]>, where: Expression) {
+  constructor(input: RowIterator, where: Expression) {
     this.input = input;
     this.where = where;
     this.comparator = compileExpression(where);
@@ -18,6 +19,9 @@ export default class FilterIterator implements AsyncIterableIterator<Row[]> {
       value: value.filter((v) => this.comparator(v)),
       done: false,
     };
+  }
+  getColumns(): Promise<string[]> {
+    return this.input.getColumns();
   }
   [Symbol.asyncIterator]() {
     return this;

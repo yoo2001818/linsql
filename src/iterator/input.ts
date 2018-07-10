@@ -1,6 +1,7 @@
 import { Row } from '../row';
+import RowIterator from './type';
 
-export default class InputIterator implements AsyncIterableIterator<Row[]> {
+export default class InputIterator implements RowIterator {
   name: string;
   input: Row[];
   position: number;
@@ -17,6 +18,9 @@ export default class InputIterator implements AsyncIterableIterator<Row[]> {
       value,
       done: this.position >= this.input.length,
     });
+  }
+  getColumns(): Promise<string[]> {
+    return Promise.resolve(Object.keys(this.input[0]));
   }
   [Symbol.asyncIterator]() {
     return this;
