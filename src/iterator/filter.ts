@@ -20,7 +20,7 @@ export default class FilterIterator implements RowIterator {
       done: false,
     };
   }
-  getColumns(): Promise<string[]> {
+  getColumns() {
     return this.input.getColumns();
   }
   [Symbol.asyncIterator]() {

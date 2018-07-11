@@ -19,8 +19,8 @@ export default class InputIterator implements RowIterator {
       done: this.position >= this.input.length,
     });
   }
-  getColumns(): Promise<string[]> {
-    return Promise.resolve(Object.keys(this.input[0]));
+  getColumns() {
+    return Promise.resolve({ [this.name]: Object.keys(this.input[0]) });
   }
   [Symbol.asyncIterator]() {
     return this;
