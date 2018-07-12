@@ -11,13 +11,13 @@ export default class InputIterator implements RowIterator {
     this.position = 0;
   }
   next(limit: number = 256): Promise<IteratorResult<Row[]>> {
+    if (this.position >= this.input.length) {
+      return Promise.resolve({ done: true, value: null });
+    }
     let value = this.input.slice(this.position, this.position + limit)
       .map(v => ({ [this.name]: v }));
     this.position += limit;
-    return Promise.resolve({
-      value,
-      done: this.position >= this.input.length,
-    });
+    return Promise.resolve({ done: false, value });
   }
   getColumns() {
     return Promise.resolve({ [this.name]: Object.keys(this.input[0]) });

@@ -12,11 +12,11 @@ export default class FilterIterator implements RowIterator {
     this.where = where;
     this.comparator = compileExpression(where);
   }
-  async next(limit: number = 256): Promise<IteratorResult<Row[]>> {
-    let { value, done } = await this.input.next();
+  async next(arg?: any): Promise<IteratorResult<Row[]>> {
+    let { value, done } = await this.input.next(arg);
     if (done) return { value, done: true };
     return {
-      value: value.filter((v) => this.comparator(v)),
+      value: value.filter(v => this.comparator(v)),
       done: false,
     };
   }
