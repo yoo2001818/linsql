@@ -35,6 +35,12 @@ export default class MapIterator implements RowIterator {
       __result: this.columns.map(v => v.name),
     };
   }
+  getOrder() {
+    return this.input.getOrder();
+  }
+  rewind(parentRow: Row) {
+    return this.input.rewind(parentRow);
+  }
   [Symbol.asyncIterator]() {
     return this;
   }

@@ -27,6 +27,12 @@ export default class OutputIterator implements RowIterator {
       return {};
     }
   }
+  getOrder() {
+    return this.input.getOrder();
+  }
+  rewind(parentRow: Row) {
+    return this.input.rewind(parentRow);
+  }
   [Symbol.asyncIterator]() {
     return this;
   }

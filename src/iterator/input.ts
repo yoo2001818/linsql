@@ -22,6 +22,12 @@ export default class InputIterator implements RowIterator {
   getColumns() {
     return Promise.resolve({ [this.name]: Object.keys(this.input[0]) });
   }
+  getOrder(): string[][] | null {
+    return null;
+  }
+  rewind() {
+    this.position = 0;
+  }
   [Symbol.asyncIterator]() {
     return this;
   }

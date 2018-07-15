@@ -13,7 +13,7 @@ export default class CrossJoinIterator implements RowIterator {
   rightFiller: { [key: string]: Row };
   comparator: (input: Row) => any;
   constructor(left: RowIterator, right: RowIterator, where: Expression,
-    leftJoin?: boolean,
+    leftJoin: boolean = false,
   ) {
     this.left = left;
     this.right = right;
@@ -54,6 +54,18 @@ export default class CrossJoinIterator implements RowIterator {
       ...(await this.left.getColumns()),
       ...(await this.right.getColumns()),
     };
+  }
+  getOrder() {
+    let leftOrder = this.left.getOrder();
+    if (leftOrder == null) return null;
+    let rightOrder = this.right.getOrder();
+    if (rightOrder == null) return leftOrder;
+    return [...leftOrder, ...rightOrder];
+  }
+  rewind(parentRow: Row) {
+    this.rightCache = null;
+    this.left.rewind(parentRow);
+    this.right.rewind(parentRow);
   }
   [Symbol.asyncIterator]() {
     return this;

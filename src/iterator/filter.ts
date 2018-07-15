@@ -23,6 +23,12 @@ export default class FilterIterator implements RowIterator {
   getColumns() {
     return this.input.getColumns();
   }
+  getOrder() {
+    return this.input.getOrder();
+  }
+  rewind(parentRow: Row) {
+    return this.input.rewind(parentRow);
+  }
   [Symbol.asyncIterator]() {
     return this;
   }

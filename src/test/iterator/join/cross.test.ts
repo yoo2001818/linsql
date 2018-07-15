@@ -23,7 +23,6 @@ describe('CrossJoiniterator', () => {
     ]);
     let iter2 = new InputIterator('accounts', [
       { id: 1, user_id: 1, name: '보통예금', amount: 12000 },
-      { id: 2, user_id: 2, name: '보통예금', amount: 11000 },
       { id: 3, user_id: 3, name: '정기적금', amount: 1000 },
       { id: 4, user_id: 4, name: '현금', amount: 0 },
       { id: 5, user_id: 3, name: '잡손실', amount: 1000 },
@@ -35,9 +34,6 @@ describe('CrossJoiniterator', () => {
     expect(await drainIterator(iter)).toEqual([{
       users: { id: 1, name: 'John', age: 11 },
       accounts: { id: 1, user_id: 1, name: '보통예금', amount: 12000 },
-    }, {
-      users: { id: 2, name: 'Steve', age: 12 },
-      accounts: { id: 2, user_id: 2, name: '보통예금', amount: 11000 },
     }, {
       users: { id: 3, name: 'David', age: 10 },
       accounts: { id: 3, user_id: 3, name: '정기적금', amount: 1000 },
