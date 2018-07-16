@@ -17,7 +17,7 @@ describe('FilterIterator', () => {
   beforeEach(() => {
     iter = new InputIterator('abc', [
       { a: 'test', b: 1 }, { a: 'abc', b: 3 }, { a: 'test', b: 3 },
-    ]);
+    ], ['b']);
     iter = new FilterIterator(iter, getWhere(
       'SELECT 1 WHERE abc.a = \'test\' AND abc.b IN (1, 3);'));
   });
@@ -26,5 +26,16 @@ describe('FilterIterator', () => {
       { abc: { a: 'test', b: 1 } },
       { abc: { a: 'test', b: 3 } },
     ]);
+  });
+  it('should be rewindable', async () => {
+    await drainIterator(iter);
+    iter.rewind();
+    expect(await drainIterator(iter)).toEqual([
+      { abc: { a: 'test', b: 1 } },
+      { abc: { a: 'test', b: 3 } },
+    ]);
+  });
+  it('should return order if specified', async () => {
+    expect(iter.getOrder()).toEqual([['abc', 'b']]);
   });
 });

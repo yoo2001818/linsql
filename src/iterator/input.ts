@@ -5,10 +5,12 @@ export default class InputIterator implements RowIterator {
   name: string;
   input: Row[];
   position: number;
-  constructor(name: string, input: Row[]) {
+  order: string[][];
+  constructor(name: string, input: Row[], order?: string[]) {
     this.name = name;
     this.input = input;
     this.position = 0;
+    this.order = order != null ? order.map(v => [name, v]) : null;
   }
   next(limit: number = 256): Promise<IteratorResult<Row[]>> {
     if (this.position >= this.input.length) {
@@ -23,7 +25,7 @@ export default class InputIterator implements RowIterator {
     return Promise.resolve({ [this.name]: Object.keys(this.input[0]) });
   }
   getOrder(): string[][] | null {
-    return null;
+    return this.order;
   }
   rewind() {
     this.position = 0;

@@ -7,7 +7,7 @@ describe('InputIterator', () => {
   beforeEach(() => {
     iter = new InputIterator('abc', [
       { a: 'test', b: 'abc' }, { a: 'abc', b: 'test' }, { a: '123', b: '555' },
-    ]);
+    ], ['a']);
   });
   it('should wrap rows in names', async () => {
     expect(await drainIterator(iter)).toEqual([
@@ -38,5 +38,17 @@ describe('InputIterator', () => {
       count += value.length;
     }
     expect(count).toBe(3);
+  });
+  it('should be rewindable', async () => {
+    await drainIterator(iter);
+    iter.rewind();
+    expect(await drainIterator(iter)).toEqual([
+      { abc: { a: 'test', b: 'abc' } },
+      { abc: { a: 'abc', b: 'test' } },
+      { abc: { a: '123', b: '555' } },
+    ]);
+  });
+  it('should return order if specified', async () => {
+    expect(iter.getOrder()).toEqual([['abc', 'a']]);
   });
 });

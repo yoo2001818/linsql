@@ -18,7 +18,7 @@ describe('MapIterator', () => {
   beforeEach(() => {
     iter = new InputIterator('abc', [
       { a: 'test', b: 1 }, { a: 'abc', b: 3 }, { a: 'test', b: 3 },
-    ]);
+    ], ['b']);
     iter = new MapIterator(iter, getColumns(
       'SELECT abc.a + abc.b AS added, FLOOR((abc.b + 20) / 2);'));
     iter = new OutputIterator(iter);
@@ -29,5 +29,17 @@ describe('MapIterator', () => {
       { added: 'abc3', '1': 11 },
       { added: 'test3', '1': 11 },
     ]);
+  });
+  it('should be rewindable', async () => {
+    await drainIterator(iter);
+    iter.rewind();
+    expect(await drainIterator(iter)).toEqual([
+      { added: 'test1', '1': 10 },
+      { added: 'abc3', '1': 11 },
+      { added: 'test3', '1': 11 },
+    ]);
+  });
+  it('should return order if specified', async () => {
+    expect(iter.getOrder()).toEqual([['abc', 'b']]);
   });
 });
