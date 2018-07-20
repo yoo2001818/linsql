@@ -12,7 +12,7 @@ declare module 'yasqlp' {
   };
   export type BooleanValue = { type: 'boolean', value: boolean };
   export type NumberValue = { type: 'number', value: number };
-  export type StringValue = { type: 'string', value: string };
+  export type StrinValue = { type: 'string', value: string };
   export type CaseExpression = {
     type: 'case',
     value?: null | Expression,
@@ -25,14 +25,14 @@ declare module 'yasqlp' {
     args: Expression[],
   };
   export type AggregateExpression = {
-    type: 'function',
+    type: 'aggregation',
     name: string,
     qualifier: null | 'distinct' | 'all',
     value: Expression,
   };
   export type PrimaryExpression = ColumnValue | WildcardValue | BooleanValue |
     NumberValue | StringValue | CaseExpression | FunctionExpression |
-    AggregateExpression;
+    AggregateExpression | NullValue | DefaultValue;
   export type BinaryExpression = {
     type: 'binary',
     op: '<<' | '>>' | '+' | '-' | '*' | '/' | '%' | '^',
