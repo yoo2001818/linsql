@@ -23,6 +23,15 @@ export default function planHashJoin(
   return planBlock(expr, plan);
 }
 
+// In order to use hash lookup, we need to be sure that hash lookup's result
+// ends in truthy (conditionals in NOT can't be used for hash lookup)
+// However, even if hash lookup doesn't end up TRUE every time, it should be
+// used anyway.
+// But, if there are any matching rows that doesn't get fetched by hash lookup,
+// it's not possible to use hash lookup, so use cross join then.
+// (If histogram shows that exclusion hash lookup is faster, it can use hash
+// join, but since we don't have histogram, let's just use cross join)
+
 function planBlock(expr: Expression, plan: HashJoinPlan): HashJoinPlan {
   switch (expr.type) {
     case 'logical':
@@ -43,7 +52,7 @@ function planBlock(expr: Expression, plan: HashJoinPlan): HashJoinPlan {
         let rightDepender = leftPlan.rightDepends ? expr.left : expr.right;
         // Create new hash table.
         let tables = [[[rightDepender]]];
-        let compares = [{ value: leftDepender[], tableId: 0 }];
+        let compares = [{ value: [leftDepender], tableId: 0 }];
         return {
           ...plan,
           tables,
