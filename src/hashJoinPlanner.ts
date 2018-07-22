@@ -32,6 +32,16 @@ export default function planHashJoin(
 // (If histogram shows that exclusion hash lookup is faster, it can use hash
 // join, but since we don't have histogram, let's just use cross join)
 
+function mergePlanDepend(
+  plan: HashJoinPlan, ...plans: HashJoinPlan[]
+): HashJoinPlan {
+  return {
+    ...plan,
+    leftDepends: plans.some(v => v.leftDepends),
+    rightDepends: plans.some(v => v.rightDepends),
+  };
+}
+
 function planBlock(expr: Expression, plan: HashJoinPlan): HashJoinPlan {
   switch (expr.type) {
     case 'logical':
@@ -54,19 +64,12 @@ function planBlock(expr: Expression, plan: HashJoinPlan): HashJoinPlan {
         let tables = [[[rightDepender]]];
         let compares = [{ value: [leftDepender], tableId: 0 }];
         return {
-          ...plan,
+          ...mergePlanDepend(plan, leftPlan, rightPlan),
           tables,
           compares,
-          leftDepends: leftPlan.leftDepends || rightPlan.leftDepends,
-          rightDepends: leftPlan.rightDepends || rightPlan.rightDepends,
         };
       } else {
-        // TODO Ascend plan
-        return {
-          ...plan,
-          leftDepends: leftPlan.leftDepends || rightPlan.leftDepends,
-          rightDepends: leftPlan.rightDepends || rightPlan.rightDepends,
-        };
+        return mergePlanDepend(plan, leftPlan, rightPlan);
       }
     }
     case 'between':
@@ -78,17 +81,15 @@ function planBlock(expr: Expression, plan: HashJoinPlan): HashJoinPlan {
     case 'binary': {
       let leftPlan = planBlock(expr.left, plan);
       let rightPlan = planBlock(expr.right, plan);
-      // TODO Ascend plan
-      return {
-        ...plan,
-        leftDepends: leftPlan.leftDepends || rightPlan.leftDepends,
-        rightDepends: leftPlan.rightDepends || rightPlan.rightDepends,
-      };
+      return mergePlanDepend(plan, leftPlan, rightPlan);
     }
     case 'function': {
+      let plans = expr.args.map(v => planBlock(v, plan));
+      return mergePlanDepend(plan, ...plans);
     }
     case 'case': {
       // If only one side's columns are present, this is still valid
+      // TODO
     }
     case 'string':
     case 'number':
