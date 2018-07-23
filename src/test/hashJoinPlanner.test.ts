@@ -33,4 +33,84 @@ describe('hashJoinPlanner', () => {
         tables: [],
       });
   });
+  it('should handle AND cases', () => {
+    expect(planHashJoin(getWhere('SELECT 1 WHERE a.a = b.b AND a.b = b.c;'),
+      ['a'], ['b'])).toEqual({
+        left: ['a'],
+        right: ['b'],
+        leftDepends: true,
+        rightDepends: true,
+        compares: [{
+          tableId: 0,
+          value: [
+            { type: 'column', table: 'a', name: 'a' },
+            { type: 'column', table: 'a', name: 'b' },
+          ],
+        }],
+        tables: [[[
+          { type: 'column', table: 'b', name: 'b' },
+          { type: 'column', table: 'b', name: 'c' },
+        ]]],
+      });
+  });
+  it('should handle OR cases', () => {
+    expect(planHashJoin(getWhere('SELECT 1 WHERE a.a = b.b OR a.a = b.c;'),
+      ['a'], ['b'])).toEqual({
+        left: ['a'],
+        right: ['b'],
+        leftDepends: true,
+        rightDepends: true,
+        compares: [{
+          tableId: 0,
+          value: [
+            { type: 'column', table: 'a', name: 'a' },
+          ],
+        }],
+        tables: [[
+          [{ type: 'column', table: 'b', name: 'b' }],
+          [{ type: 'column', table: 'b', name: 'c' }],
+        ]],
+      });
+    expect(planHashJoin(getWhere('SELECT 1 WHERE a.a = b.b OR a.b = b.b;'),
+      ['a'], ['b'])).toEqual({
+        left: ['a'],
+        right: ['b'],
+        leftDepends: true,
+        rightDepends: true,
+        compares: [{
+          tableId: 0,
+          value: [
+            { type: 'column', table: 'a', name: 'a' },
+          ],
+        }, {
+          tableId: 0,
+          value: [
+            { type: 'column', table: 'a', name: 'b' },
+          ],
+        }],
+        tables: [[[{ type: 'column', table: 'b', name: 'b' }]]],
+      });
+    expect(planHashJoin(getWhere('SELECT 1 WHERE a.a = b.b OR a.b = b.c;'),
+      ['a'], ['b'])).toEqual({
+        left: ['a'],
+        right: ['b'],
+        leftDepends: true,
+        rightDepends: true,
+        compares: [{
+          tableId: 0,
+          value: [
+            { type: 'column', table: 'a', name: 'a' },
+          ],
+        }, {
+          tableId: 1,
+          value: [
+            { type: 'column', table: 'a', name: 'b' },
+          ],
+        }],
+        tables: [
+          [[{ type: 'column', table: 'b', name: 'b' }]],
+          [[{ type: 'column', table: 'b', name: 'c' }]],
+        ],
+      });
+  });
 });
