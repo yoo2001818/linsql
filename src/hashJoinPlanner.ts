@@ -47,6 +47,30 @@ function planBlock(expr: Expression, plan: HashJoinPlan): HashJoinPlan {
     case 'logical':
       if (expr.op === '&&') {
         // AND should add more columns to the existing tables if possible
+        let leftPlan = planBlock(expr.left, plan);
+        let rightPlan = planBlock(expr.right, plan);
+        // Append smallest plan's tuples onto larger plan.
+        // (a.a = b.a OR a.b = b.b) AND a.c = b.c can be merged, however, if
+        // both side has OR, it's impossible to do that.
+        // (a.a = b.a OR a.b = b.b) AND (a.c = b.c OR a.d = b.d) ->
+        // It's just better to use one side of plan in this case.
+        let rightSmaller = leftPlan.tables.length > rightPlan.tables.length;
+        let smallerPlan = rightSmaller ? rightPlan : leftPlan;
+        let largerPlan = rightSmaller ? leftPlan : rightPlan;
+        if (smallerPlan.tables.length > 1) {
+          return mergePlanDepend(smallerPlan, smallerPlan, largerPlan);
+        } else if (smallerPlan.tables.length === 0) {
+          return mergePlanDepend(largerPlan, largerPlan, smallerPlan);
+        } else {
+          // Actually merge the tuples.
+          let table = smallerPlan.tables[0];
+          return {
+            ...mergePlanDepend(largerPlan, largerPlan, smallerPlan),
+            tables: largerPlan.tables.map(table => table.map(tuple => {
+              return tuple.concat(table[0]);
+            })),
+          };
+        }
       } else if (expr.op === '||') {
         // OR should add more compares
       }
