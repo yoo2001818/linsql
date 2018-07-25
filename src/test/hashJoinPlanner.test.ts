@@ -43,13 +43,13 @@ describe('hashJoinPlanner', () => {
         compares: [{
           tableId: 0,
           value: [
-            { type: 'column', table: 'a', name: 'a' },
             { type: 'column', table: 'a', name: 'b' },
+            { type: 'column', table: 'a', name: 'a' },
           ],
         }],
         tables: [[[
-          { type: 'column', table: 'b', name: 'b' },
           { type: 'column', table: 'b', name: 'c' },
+          { type: 'column', table: 'b', name: 'b' },
         ]]],
       });
   });
