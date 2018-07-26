@@ -1,26 +1,21 @@
 import { Expression } from 'yasqlp';
 
+type HashJoinInput = {
+  left: string[],
+  right: string[],
+};
+
 type HashJoinPlan = {
   tables: Expression[][][],
   compares: { value: Expression[], tableId: number }[],
   leftDepends: boolean,
   rightDepends: boolean,
-  left: string[],
-  right: string[],
 };
 
 export default function planHashJoin(
   expr: Expression, left: string[], right: string[],
 ) {
-  let plan: HashJoinPlan = {
-    tables: [],
-    compares: [],
-    leftDepends: false,
-    rightDepends: false,
-    left,
-    right,
-  };
-  return planBlock(expr, plan);
+  return planBlock(expr, { left, right });
 }
 
 // In order to use hash lookup, we need to be sure that hash lookup's result
@@ -33,23 +28,24 @@ export default function planHashJoin(
 // join, but since we don't have histogram, let's just use cross join)
 
 function mergePlanDepend(
-  plan: HashJoinPlan, ...plans: HashJoinPlan[]
+  ...plans: HashJoinPlan[]
 ): HashJoinPlan {
   return {
-    ...plan,
+    tables: [],
+    compares: [],
     leftDepends: plans.some(v => v.leftDepends),
     rightDepends: plans.some(v => v.rightDepends),
   };
 }
 
-function planBlock(expr: Expression, plan: HashJoinPlan): HashJoinPlan {
+function planBlock(expr: Expression, input: HashJoinInput): HashJoinPlan {
   switch (expr.type) {
     case 'logical':
       if (expr.op === '&&') {
         // AND should add more columns to the existing tables if possible
         // TODO should support multiple values (more than 2)
-        let leftPlan = planBlock(expr.values[0], plan);
-        let rightPlan = planBlock(expr.values[1], plan);
+        let leftPlan = planBlock(expr.values[0], input);
+        let rightPlan = planBlock(expr.values[1], input);
         // Append smallest plan's tuples onto larger plan.
         // (a.a = b.a OR a.b = b.b) AND a.c = b.c can be merged, however, if
         // both side has OR, it's impossible to do that.
@@ -91,8 +87,8 @@ function planBlock(expr: Expression, plan: HashJoinPlan): HashJoinPlan {
       break;
     case 'compare': {
       // See if each side has left or right table, and create hash table
-      let leftPlan = planBlock(expr.left, plan);
-      let rightPlan = planBlock(expr.right, plan);
+      let leftPlan = planBlock(expr.left, input);
+      let rightPlan = planBlock(expr.right, input);
       let isHashable = leftPlan.leftDepends !== rightPlan.leftDepends &&
         leftPlan.rightDepends !== rightPlan.rightDepends;
       if (isHashable && expr.op === '=') {
@@ -102,28 +98,30 @@ function planBlock(expr: Expression, plan: HashJoinPlan): HashJoinPlan {
         let tables = [[[rightDepender]]];
         let compares = [{ value: [leftDepender], tableId: 0 }];
         return {
-          ...mergePlanDepend(plan, leftPlan, rightPlan),
+          ...mergePlanDepend(leftPlan, rightPlan),
           tables,
           compares,
         };
       } else {
-        return mergePlanDepend(plan, leftPlan, rightPlan);
+        return mergePlanDepend(leftPlan, rightPlan);
       }
     }
     case 'between':
     case 'in':
     case 'aggregation':
       // This must be not present
+      break;
     case 'unary':
       // ??
+      break;
     case 'binary': {
-      let leftPlan = planBlock(expr.left, plan);
-      let rightPlan = planBlock(expr.right, plan);
-      return mergePlanDepend(plan, leftPlan, rightPlan);
+      let leftPlan = planBlock(expr.left, input);
+      let rightPlan = planBlock(expr.right, input);
+      return mergePlanDepend(leftPlan, rightPlan);
     }
     case 'function': {
-      let plans = expr.args.map(v => planBlock(v, plan));
-      return mergePlanDepend(plan, ...plans);
+      let plans = expr.args.map(v => planBlock(v, input));
+      return mergePlanDepend(...plans);
     }
     case 'case': {
       // If only one side's columns are present, this is still valid
@@ -135,14 +133,19 @@ function planBlock(expr: Expression, plan: HashJoinPlan): HashJoinPlan {
     case 'default':
     case 'null':
     case 'wildcard':
-      return plan;
+      return {
+        tables: [],
+        compares: [],
+        leftDepends: false,
+        rightDepends: false,
+      };
     case 'column': {
-      if (plan.left.includes(expr.table)) {
-        return { ...plan, leftDepends: true };
-      } else if (plan.right.includes(expr.table)) {
-        return { ...plan, rightDepends: true };
-      }
-      return plan;
+      return {
+        tables: [],
+        compares: [],
+        leftDepends: input.left.includes(expr.table),
+        rightDepends: input.right.includes(expr.table),
+      };
     }
   }
 }

@@ -12,7 +12,7 @@ declare module 'yasqlp' {
   };
   export type BooleanValue = { type: 'boolean', value: boolean };
   export type NumberValue = { type: 'number', value: number };
-  export type StrinValue = { type: 'string', value: string };
+  export type StringValue = { type: 'string', value: string };
   export type CaseExpression = {
     type: 'case',
     value?: null | Expression,

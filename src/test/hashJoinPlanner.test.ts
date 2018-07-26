@@ -11,8 +11,6 @@ describe('hashJoinPlanner', () => {
   it('should handle simple cases', () => {
     expect(planHashJoin(getWhere('SELECT 1 WHERE a.a = b.b;'), ['a'], ['b']))
       .toEqual({
-        left: ['a'],
-        right: ['b'],
         leftDepends: true,
         rightDepends: true,
         compares: [{
@@ -25,8 +23,6 @@ describe('hashJoinPlanner', () => {
       });
     expect(planHashJoin(getWhere('SELECT 1 WHERE a.a = 1;'), ['a'], ['b']))
       .toEqual({
-        left: ['a'],
-        right: ['b'],
         leftDepends: true,
         rightDepends: false,
         compares: [],
@@ -36,8 +32,6 @@ describe('hashJoinPlanner', () => {
   it('should handle AND cases', () => {
     expect(planHashJoin(getWhere('SELECT 1 WHERE a.a = b.b AND a.b = b.c;'),
       ['a'], ['b'])).toEqual({
-        left: ['a'],
-        right: ['b'],
         leftDepends: true,
         rightDepends: true,
         compares: [{
@@ -56,8 +50,6 @@ describe('hashJoinPlanner', () => {
   it('should handle OR cases', () => {
     expect(planHashJoin(getWhere('SELECT 1 WHERE a.a = b.b OR a.a = b.c;'),
       ['a'], ['b'])).toEqual({
-        left: ['a'],
-        right: ['b'],
         leftDepends: true,
         rightDepends: true,
         compares: [{
@@ -73,8 +65,6 @@ describe('hashJoinPlanner', () => {
       });
     expect(planHashJoin(getWhere('SELECT 1 WHERE a.a = b.b OR a.b = b.b;'),
       ['a'], ['b'])).toEqual({
-        left: ['a'],
-        right: ['b'],
         leftDepends: true,
         rightDepends: true,
         compares: [{
@@ -92,8 +82,6 @@ describe('hashJoinPlanner', () => {
       });
     expect(planHashJoin(getWhere('SELECT 1 WHERE a.a = b.b OR a.b = b.c;'),
       ['a'], ['b'])).toEqual({
-        left: ['a'],
-        right: ['b'],
         leftDepends: true,
         rightDepends: true,
         compares: [{
