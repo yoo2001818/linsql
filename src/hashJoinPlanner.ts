@@ -1,3 +1,4 @@
+import deepEqual from 'deep-equal';
 import { Expression } from 'yasqlp';
 
 type HashJoinInput = {
@@ -74,7 +75,7 @@ function planBlock(expr: Expression, input: HashJoinInput): HashJoinPlan {
             }
           }
           return {
-            ...mergePlanDepend(largerPlan, largerPlan, smallerPlan),
+            ...mergePlanDepend(largerPlan, smallerPlan),
             tables: largerPlan.tables.map(tbl => tbl.map(tuple => {
               return tuple.concat(table[0]);
             })),
@@ -82,7 +83,17 @@ function planBlock(expr: Expression, input: HashJoinInput): HashJoinPlan {
           };
         }
       } else if (expr.op === '||') {
-        // OR should add more compares
+        // OR should add more compares.
+        // Append new compares / values while checking for duplicates.
+        let leftPlan = planBlock(expr.values[0], input);
+        let rightPlan = planBlock(expr.values[0], input);
+        return {
+          ...mergePlanDepend(leftPlan, rightPlan),
+          tables: leftPlan.tables.concat(rightPlan.tables),
+          compares: leftPlan.compares.concat(rightPlan.compares.map(v => ({
+            ...v, tableId: v.tableId + leftPlan.tables.length,
+          }))),
+        };
       }
       break;
     case 'compare': {
