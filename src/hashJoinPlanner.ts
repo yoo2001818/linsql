@@ -86,12 +86,23 @@ function planBlock(expr: Expression, input: HashJoinInput): HashJoinPlan {
         // OR should add more compares.
         // Append new compares / values while checking for duplicates.
         let leftPlan = planBlock(expr.values[0], input);
-        let rightPlan = planBlock(expr.values[0], input);
+        let rightPlan = planBlock(expr.values[1], input);
+        // Check for duplicate tables - create a table ID map for this.
+        let newTables: Expression[][][] = [];
+        let tableMap = rightPlan.tables.map((table, i) => {
+          let index = leftPlan.tables.findIndex(v => deepEqual(table, v));
+          if (index === -1) {
+            newTables.push(table);
+            return leftPlan.tables.length + i;
+          } else {
+            return index;
+          }
+        });
         return {
           ...mergePlanDepend(leftPlan, rightPlan),
-          tables: leftPlan.tables.concat(rightPlan.tables),
+          tables: leftPlan.tables.concat(newTables),
           compares: leftPlan.compares.concat(rightPlan.compares.map(v => ({
-            ...v, tableId: v.tableId + leftPlan.tables.length,
+            ...v, tableId: tableMap[v.tableId],
           }))),
         };
       }
