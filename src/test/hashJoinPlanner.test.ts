@@ -47,7 +47,7 @@ describe('hashJoinPlanner', () => {
         ]]],
       });
   });
-  it('should handle OR cases', () => {
+  it('should handle OR cases (n:1)', () => {
     expect(planHashJoin(getWhere('SELECT 1 WHERE a.a = b.b OR a.a = b.c;'),
       ['a'], ['b'])).toEqual({
         leftDepends: true,
@@ -63,6 +63,8 @@ describe('hashJoinPlanner', () => {
           [{ type: 'column', table: 'b', name: 'c' }],
         ]],
       });
+  });
+  it('should handle OR cases (1:n)', () => {
     expect(planHashJoin(getWhere('SELECT 1 WHERE a.a = b.b OR a.b = b.b;'),
       ['a'], ['b'])).toEqual({
         leftDepends: true,
@@ -80,6 +82,8 @@ describe('hashJoinPlanner', () => {
         }],
         tables: [[[{ type: 'column', table: 'b', name: 'b' }]]],
       });
+  });
+  it('should handle OR cases (1:1)', () => {
     expect(planHashJoin(getWhere('SELECT 1 WHERE a.a = b.b OR a.b = b.c;'),
       ['a'], ['b'])).toEqual({
         leftDepends: true,

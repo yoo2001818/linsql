@@ -88,7 +88,20 @@ function planBlock(expr: Expression, input: HashJoinInput): HashJoinPlan {
         let leftPlan = planBlock(expr.values[0], input);
         let rightPlan = planBlock(expr.values[1], input);
         // Check for duplicate tables - create a table ID map for this.
-        let newTables: Expression[][][] = [];
+        // Table map can be merged into one if all referencing compares
+        // are same.
+        // e.g. a.a = b.a OR a.a = b.b can be merged.
+        // This can be done by checking if all the compare references are
+        // shared. However, this is quite complicated as we need to check
+        // each table can be shared.
+        // 1. Remove redundant tables and merge two tables together.
+        // 2. Create compared value map of each table.
+        // 3. If each table's compared value map is same, it can be merged
+        //    into one.
+        // Thus, it is essentially O(m*n^2) and is expensive.
+
+        // Remove redundant tables and merge two tables together.
+        let newTables: Expression[][][] = leftPlan.tables.slice();
         let tableMap = rightPlan.tables.map((table, i) => {
           let index = leftPlan.tables.findIndex(v => deepEqual(table, v));
           if (index === -1) {
@@ -98,12 +111,43 @@ function planBlock(expr: Expression, input: HashJoinInput): HashJoinPlan {
             return index;
           }
         });
+        let tableRefs: Expression[][][] = newTables.map(() => []);
+        // Create compared value map of each table.
+        leftPlan.compares.forEach(v => {
+          tableRefs[v.tableId].push(v.value);
+        });
+        rightPlan.compares.forEach(v => {
+          let refs = tableRefs[tableMap[v.tableId]];
+          if (refs.find(ref => deepEqual(ref, v.value)) == null) {
+            refs.push(v.value);
+          }
+        });
+        // Merge tables into one if it can be merged.
+        let tableMerged: boolean[] = newTables.map(() => false);
+        for (let i = 0; i < newTables.length; ++i) {
+          if (tableMerged[i]) continue;
+          for (let j = i + 1; j < newTables.length; ++j) {
+            // Compare table refs.
+            // TODO This is sensitive to order - reorder them or use hashcode.
+            if (deepEqual(tableRefs[i], tableRefs[j])) {
+              tableMerged[j] = true;
+              newTables[i] = newTables[i].concat(newTables[j]);
+            }
+          }
+        }
+        // Recreate compares from table references.
+        let newCompares: { value: Expression[], tableId: number }[] = [];
+        for (let i = 0; i < newTables.length; ++i) {
+          if (tableMerged[i]) continue;
+          tableRefs[i].forEach(v => {
+            newCompares.push({ value: v, tableId: i });
+          });
+        }
+        newTables = newTables.filter((_, i) => !tableMerged[i]);
         return {
           ...mergePlanDepend(leftPlan, rightPlan),
-          tables: leftPlan.tables.concat(newTables),
-          compares: leftPlan.compares.concat(rightPlan.compares.map(v => ({
-            ...v, tableId: tableMap[v.tableId],
-          }))),
+          tables: newTables,
+          compares: newCompares,
         };
       }
       break;
