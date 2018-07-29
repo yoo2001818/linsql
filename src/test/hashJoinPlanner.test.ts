@@ -47,6 +47,27 @@ describe('hashJoinPlanner', () => {
         ]]],
       });
   });
+  it('should handle multiple AND cases', () => {
+    expect(planHashJoin(getWhere(
+      'SELECT 1 WHERE a.a = b.b AND a.b = b.c AND a.c = b.d;'),
+      ['a'], ['b'])).toEqual({
+        leftDepends: true,
+        rightDepends: true,
+        compares: [{
+          tableId: 0,
+          value: [
+            { type: 'column', table: 'a', name: 'c' },
+            { type: 'column', table: 'a', name: 'b' },
+            { type: 'column', table: 'a', name: 'a' },
+          ],
+        }],
+        tables: [[[
+          { type: 'column', table: 'b', name: 'd' },
+          { type: 'column', table: 'b', name: 'c' },
+          { type: 'column', table: 'b', name: 'b' },
+        ]]],
+      });
+  });
   it('should handle OR cases (n:1)', () => {
     expect(planHashJoin(getWhere('SELECT 1 WHERE a.a = b.b OR a.a = b.c;'),
       ['a'], ['b'])).toEqual({
@@ -103,6 +124,31 @@ describe('hashJoinPlanner', () => {
           [[{ type: 'column', table: 'b', name: 'b' }]],
           [[{ type: 'column', table: 'b', name: 'c' }]],
         ],
+      });
+  });
+  it('should handle multiple OR cases', () => {
+    expect(planHashJoin(getWhere(
+      'SELECT 1 WHERE a.a = b.b OR a.a = b.c OR a.b = b.d;'),
+      ['a'], ['b'])).toEqual({
+        leftDepends: true,
+        rightDepends: true,
+        compares: [{
+          tableId: 0,
+          value: [
+            { type: 'column', table: 'a', name: 'a' },
+          ],
+        }, {
+          tableId: 1,
+          value: [
+            { type: 'column', table: 'a', name: 'b' },
+          ],
+        }],
+        tables: [[
+          [{ type: 'column', table: 'b', name: 'b' }],
+          [{ type: 'column', table: 'b', name: 'c' }],
+        ], [
+          [{ type: 'column', table: 'b', name: 'd' }],
+        ]],
       });
   });
 });
