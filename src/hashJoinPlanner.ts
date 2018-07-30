@@ -51,13 +51,29 @@ function planBlock(expr: Expression, input: HashJoinInput): HashJoinPlan {
           // both side has OR, it's impossible to do that.
           // (a.a = b.a OR a.b = b.b) AND (a.c = b.c OR a.d = b.d) ->
           // It's just better to use one side of plan in this case.
-          let rightSmaller = leftPlan.tables.length > rightPlan.tables.length;
+          let rightSmaller =
+            leftPlan.tables.length === rightPlan.tables.length &&
+            leftPlan.tables.length === 1 ?
+              leftPlan.tables[0].length > rightPlan.tables[0].length :
+              leftPlan.tables.length > rightPlan.tables.length;
           let smallerPlan = rightSmaller ? rightPlan : leftPlan;
           let largerPlan = rightSmaller ? leftPlan : rightPlan;
-          if (smallerPlan.tables.length > 1) {
-            return mergePlanDepend(smallerPlan, smallerPlan, largerPlan);
-          } else if (smallerPlan.tables.length === 0) {
-            return mergePlanDepend(largerPlan, largerPlan, smallerPlan);
+          let smallerMergeable = smallerPlan.tables.length === 1 &&
+            smallerPlan.compares.length === 1;
+          if (!smallerMergeable && smallerPlan.tables.length > 0) {
+            return {
+              tables: smallerPlan.tables,
+              compares: smallerPlan.compares,
+              leftDepends: smallerPlan.leftDepends || largerPlan.leftDepends,
+              rightDepends: smallerPlan.rightDepends || largerPlan.rightDepends,
+            };
+          } else if (!smallerMergeable) {
+            return {
+              tables: largerPlan.tables,
+              compares: largerPlan.compares,
+              leftDepends: smallerPlan.leftDepends || largerPlan.leftDepends,
+              rightDepends: smallerPlan.rightDepends || largerPlan.rightDepends,
+            };
           } else {
             // Actually merge the tuples.
             let table = smallerPlan.tables[0];
