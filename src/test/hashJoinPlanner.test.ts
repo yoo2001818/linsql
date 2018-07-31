@@ -188,15 +188,9 @@ describe('hashJoinPlanner', () => {
           value: [
             { type: 'column', table: 'a', name: 'a' },
           ],
-        }, {
-          tableId: 1,
-          value: [
-            { type: 'column', table: 'a', name: 'b' },
-          ],
         }],
         tables: [[
           [{ type: 'column', table: 'b', name: 'a' }],
-        ], [
           [{ type: 'column', table: 'b', name: 'b' }],
         ]],
       });
@@ -218,7 +212,7 @@ describe('hashJoinPlanner', () => {
           { type: 'column', table: 'b', name: 'a' },
           { type: 'column', table: 'b', name: 'd' },
         ], [
-          { type: 'column', table: 'b', name: 'a' },
+          { type: 'column', table: 'b', name: 'b' },
           { type: 'column', table: 'b', name: 'd' },
         ]]],
       });

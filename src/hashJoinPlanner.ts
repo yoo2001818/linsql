@@ -52,13 +52,14 @@ function planBlock(expr: Expression, input: HashJoinInput): HashJoinPlan {
           // (a.a = b.a OR a.b = b.b) AND (a.c = b.c OR a.d = b.d) ->
           // It's just better to use one side of plan in this case.
           let rightSmaller =
-            leftPlan.tables.length === rightPlan.tables.length &&
-            leftPlan.tables.length === 1 ?
+            (leftPlan.tables.length === rightPlan.tables.length &&
+            leftPlan.tables.length === 1) ?
               leftPlan.tables[0].length > rightPlan.tables[0].length :
               leftPlan.tables.length > rightPlan.tables.length;
           let smallerPlan = rightSmaller ? rightPlan : leftPlan;
           let largerPlan = rightSmaller ? leftPlan : rightPlan;
           let smallerMergeable = smallerPlan.tables.length === 1 &&
+            smallerPlan.tables[0].length === 1 &&
             smallerPlan.compares.length === 1;
           if (!smallerMergeable && smallerPlan.tables.length > 0) {
             return {
