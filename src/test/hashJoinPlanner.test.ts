@@ -151,7 +151,7 @@ describe('hashJoinPlanner', () => {
         ]],
       });
   });
-  it('should handle AND in OR cases (unmergeable)', () => {
+  it('should handle OR in AND cases (unmergeable)', () => {
     // This is not really deterministic since one of them has to be selected.
     expect(planHashJoin(getWhere(
       'SELECT 1 WHERE (a.a = b.a OR a.b = b.b) AND (a.a = b.c OR a.b = b.d);'),
@@ -176,7 +176,7 @@ describe('hashJoinPlanner', () => {
         ]],
       });
   });
-  it('should handle AND in OR cases (unmergeable 2)', () => {
+  it('should handle OR in AND cases (unmergeable 2)', () => {
     // This is not really deterministic since one of them has to be selected.
     expect(planHashJoin(getWhere(
       'SELECT 1 WHERE (a.a = b.a OR a.a = b.b) AND (a.a = b.c OR a.a = b.d);'),
@@ -195,7 +195,7 @@ describe('hashJoinPlanner', () => {
         ]],
       });
   });
-  it('should handle AND in OR cases (mergeable)', () => {
+  it('should handle OR in AND cases (mergeable)', () => {
     expect(planHashJoin(getWhere(
       'SELECT 1 WHERE (a.a = b.a OR a.a = b.b) AND a.a = b.d;'),
       ['a'], ['b'])).toEqual({
@@ -238,6 +238,101 @@ describe('hashJoinPlanner', () => {
           [[{ type: 'column', table: 'b', name: 'b' }]],
           [[{ type: 'column', table: 'b', name: 'c' }]],
         ],
+      });
+  });
+  it('should handle AND in OR cases (mergeable)', () => {
+    expect(planHashJoin(getWhere(
+      'SELECT 1 WHERE (a.a = b.b AND a.b = b.c) OR (a.a = b.d AND a.b = b.e);'),
+      ['a'], ['b'])).toEqual({
+        leftDepends: true,
+        rightDepends: true,
+        compares: [{
+          tableId: 0,
+          value: [
+            { type: 'column', table: 'a', name: 'b' },
+            { type: 'column', table: 'a', name: 'a' },
+          ],
+        }],
+        tables: [[[
+          { type: 'column', table: 'b', name: 'c' },
+          { type: 'column', table: 'b', name: 'b' },
+        ], [
+          { type: 'column', table: 'b', name: 'e' },
+          { type: 'column', table: 'b', name: 'd' },
+        ]]],
+      });
+  });
+  it('should handle AND in OR cases (separate)', () => {
+    expect(planHashJoin(getWhere(
+      'SELECT 1 WHERE (a.a = b.b AND a.b = b.c) OR (a.c = b.d AND a.d = b.e);'),
+      ['a'], ['b'])).toEqual({
+        leftDepends: true,
+        rightDepends: true,
+        compares: [{
+          tableId: 0,
+          value: [
+            { type: 'column', table: 'a', name: 'b' },
+            { type: 'column', table: 'a', name: 'a' },
+          ],
+        }, {
+          tableId: 1,
+          value: [
+            { type: 'column', table: 'a', name: 'd' },
+            { type: 'column', table: 'a', name: 'c' },
+          ],
+        }],
+        tables: [[[
+          { type: 'column', table: 'b', name: 'c' },
+          { type: 'column', table: 'b', name: 'b' },
+        ]], [[
+          { type: 'column', table: 'b', name: 'e' },
+          { type: 'column', table: 'b', name: 'd' },
+        ]]],
+      });
+  });
+  it('should handle functions and expressions', () => {
+    expect(planHashJoin(getWhere(
+      'SELECT 1 WHERE CEIL(a.a / 10 + 5) = FLOOR(b.a * 10 - 3);'),
+      ['a'], ['b'])).toEqual({
+        leftDepends: true,
+        rightDepends: true,
+        compares: [{
+          tableId: 0,
+          value: [
+            getWhere('SELECT 1 WHERE CEIL(a.a / 10 + 5);'),
+          ],
+        }],
+        tables: [[[
+          getWhere('SELECT 1 WHERE FLOOR(b.a * 10 - 3);'),
+        ]]],
+      });
+  });
+  it('should treat irregular expressions as nothing', () => {
+    expect(planHashJoin(getWhere(
+      'SELECT 1 WHERE (a.a = b.b) > FALSE;'),
+      ['a'], ['b'])).toEqual({
+        leftDepends: true,
+        rightDepends: true,
+        compares: [],
+        tables: [],
+      });
+    expect(planHashJoin(getWhere(
+      'SELECT 1 WHERE NOT (a.a = b.b);'),
+      ['a'], ['b'])).toEqual({
+        leftDepends: true,
+        rightDepends: true,
+        compares: [],
+        tables: [],
+      });
+  });
+  it('should treat OR with unknown as nothing (2)', () => {
+    expect(planHashJoin(getWhere(
+      'SELECT 1 WHERE a.a > b.b OR a.a = b.b;'),
+      ['a'], ['b'])).toEqual({
+        leftDepends: true,
+        rightDepends: true,
+        compares: [],
+        tables: [],
       });
   });
 });
