@@ -103,6 +103,15 @@ function planBlock(expr: Expression, input: HashJoinInput): HashJoinPlan {
         // OR should add more compares.
         // Append new compares / values while checking for duplicates.
         let plans = expr.values.map(v => planBlock(v, input));
+        let isFailed = !plans.every(v => v.tables.length >= 1);
+        if (isFailed) {
+          return {
+            tables: [],
+            compares: [],
+            leftDepends: plans.some(v => v.leftDepends),
+            rightDepends: plans.some(v => v.rightDepends),
+          };
+        }
         return plans.reduce((leftPlan, rightPlan) => {
           // Check for duplicate tables - create a table ID map for this.
           // Table map can be merged into one if all referencing compares
@@ -196,8 +205,7 @@ function planBlock(expr: Expression, input: HashJoinInput): HashJoinPlan {
       // This must be not present
       break;
     case 'unary':
-      // ??
-      break;
+      return mergePlanDepend(planBlock(expr.value, input));
     case 'binary': {
       let leftPlan = planBlock(expr.left, input);
       let rightPlan = planBlock(expr.right, input);
