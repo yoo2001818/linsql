@@ -6,7 +6,7 @@ type HashJoinInput = {
   right: string[],
 };
 
-type HashJoinPlan = {
+export type HashJoinPlan = {
   tables: Expression[][][],
   compares: { value: Expression[], tableId: number }[],
   leftDepends: boolean,
