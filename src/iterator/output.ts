@@ -19,6 +19,9 @@ export default class OutputIterator implements RowIterator {
       done: false,
     };
   }
+  getTables() {
+    return [this.name];
+  }
   async getColumns() {
     if (this.name != null) {
       return { [this.name]: (await this.input.getColumns()).__result };

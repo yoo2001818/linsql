@@ -29,6 +29,9 @@ export default class MapIterator implements RowIterator {
       done: false,
     };
   }
+  getTables() {
+    return [...this.input.getTables(), '__result'];
+  }
   getColumns() {
     return {
       ...this.input.getColumns(),

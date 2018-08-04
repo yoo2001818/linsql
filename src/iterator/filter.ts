@@ -20,6 +20,9 @@ export default class FilterIterator implements RowIterator {
       done: false,
     };
   }
+  getTables() {
+    return this.input.getTables();
+  }
   getColumns() {
     return this.input.getColumns();
   }

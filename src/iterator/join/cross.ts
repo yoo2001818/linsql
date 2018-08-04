@@ -49,6 +49,9 @@ export default class CrossJoinIterator implements RowIterator {
     }
     return { done, value: output };
   }
+  getTables() {
+    return [...this.left.getTables(), ...this.right.getTables()];
+  }
   async getColumns() {
     return {
       ...(await this.left.getColumns()),
