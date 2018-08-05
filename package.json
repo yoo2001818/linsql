@@ -32,7 +32,9 @@
   },
   "dependencies": {
     "@types/deep-equal": "^1.0.1",
+    "@types/object-hash": "^1.2.0",
     "deep-equal": "^1.0.1",
+    "object-hash": "^1.3.0",
     "yasqlp": "^0.1.5"
   }
 }
