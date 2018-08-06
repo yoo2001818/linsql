@@ -1,7 +1,7 @@
 import parse, { Expression } from 'yasqlp';
 
 import InputIterator from '../../../iterator/input';
-import CrossJoinIterator from '../../../iterator/join/cross';
+import HashJoinIterator from '../../../iterator/join/hash';
 import RowIterator from '../../../iterator/type';
 
 import drainIterator from '../../../util/drainIterator';
@@ -12,7 +12,7 @@ function getWhere(code: string): Expression {
   throw new Error('Given statement is not select stement');
 }
 
-describe('CrossJoinIterator', () => {
+describe('HashJoinIterator', () => {
   let iter: RowIterator;
   let iter2: RowIterator;
   beforeEach(() => {
@@ -30,7 +30,7 @@ describe('CrossJoinIterator', () => {
     ]);
   });
   it('should return correct result', async () => {
-    iter = new CrossJoinIterator(iter, iter2, getWhere(
+    iter = new HashJoinIterator(iter, iter2, getWhere(
       'SELECT 1 WHERE users.id = accounts.user_id;'));
     expect(await drainIterator(iter)).toEqual([{
       users: { id: 1, name: 'John', age: 11 },
@@ -47,7 +47,7 @@ describe('CrossJoinIterator', () => {
     }]);
   });
   it('should handle left join', async () => {
-    iter = new CrossJoinIterator(iter, iter2, getWhere(
+    iter = new HashJoinIterator(iter, iter2, getWhere(
       'SELECT 1 WHERE users.id = accounts.user_id;'), true);
     expect(await drainIterator(iter)).toEqual([{
       users: { id: 1, name: 'John', age: 11 },
@@ -67,7 +67,7 @@ describe('CrossJoinIterator', () => {
     }]);
   });
   it('should be rewindable', async () => {
-    iter = new CrossJoinIterator(iter, iter2, getWhere(
+    iter = new HashJoinIterator(iter, iter2, getWhere(
       'SELECT 1 WHERE users.id = accounts.user_id;'));
     await drainIterator(iter);
     iter.rewind();
@@ -87,15 +87,15 @@ describe('CrossJoinIterator', () => {
   });
   it('should return correct order', async () => {
     let dummyWhere = getWhere('SELECT 1 WHERE 1;');
-    expect(new CrossJoinIterator(
+    expect(new HashJoinIterator(
       new InputIterator('a', [], ['name']),
       new InputIterator('b', [], ['name']),
       dummyWhere).getOrder()).toEqual([['a', 'name'], ['b', 'name']]);
-    expect(new CrossJoinIterator(
+    expect(new HashJoinIterator(
       new InputIterator('a', []),
       new InputIterator('b', [], ['name']),
       dummyWhere).getOrder()).toEqual(null);
-    expect(new CrossJoinIterator(
+    expect(new HashJoinIterator(
       new InputIterator('a', [], ['name']),
       new InputIterator('b', []),
       dummyWhere).getOrder()).toEqual([['a', 'name']]);

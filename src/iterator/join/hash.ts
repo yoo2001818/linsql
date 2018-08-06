@@ -1,5 +1,6 @@
 import { Expression } from 'yasqlp';
 import objectHash from 'object-hash';
+import Heap from 'heap';
 import { Row } from '../../row';
 import planHashJoin, { HashJoinPlan } from '../../hashJoinPlanner';
 import RowIterator from '../type';
@@ -10,8 +11,11 @@ export default class HashJoinIterator implements RowIterator {
   left: RowIterator;
   right: RowIterator;
   leftJoin: boolean;
-  tables: { [key: string]: Row[] }[];
+  rightCache: Row[];
+  rightFiller: { [key: string]: Row };
+  tables: { [key: string]: number[] }[];
   plan: HashJoinPlan;
+  comparator: (input: Row) => any;
   tablePlans: { tableId: number, evaluate: (row: Row) => any }[];
   comparePlans: { tableId: number, evaluate: (row: Row) => any }[];
   constructor(left: RowIterator, right: RowIterator, where: Expression,
@@ -23,6 +27,7 @@ export default class HashJoinIterator implements RowIterator {
     // Build hash join plan
     this.plan = planHashJoin(where,
       this.left.getTables(), this.right.getTables());
+    this.comparator = compileExpression(where);
     // Compile plan to evaluatable plans
     this.tablePlans = [];
     this.plan.tables.forEach((desc, tableId) => {
@@ -41,27 +46,35 @@ export default class HashJoinIterator implements RowIterator {
         evaluate: (row: Row) => evalColumns.map((evaluate) => evaluate(row)),
       };
     });
+    this.rightFiller = {};
+    for (let key of this.right.getTables()) {
+      this.rightFiller[key] = {};
+    }
   }
   async next(arg: any): Promise<IteratorResult<Row[]>> {
-    if (this.tables == null) {
+    if (this.rightCache == null) {
+      this.rightCache = [];
       this.tables = this.plan.tables.map(() => ({}));
       // Fetch and put each row to hash table
       let it = this.right;
+      let rowId = 0;
       while (true) {
         let result = await it.next(arg);
         if (result.done) break;
         let rows = result.value;
         for (let i = 0; i < rows.length; ++i) {
           let row = rows[i];
+          this.rightCache.push(row);
           this.tablePlans.forEach((plan) => {
             let hash = objectHash(plan.evaluate(row));
             let table = this.tables[plan.tableId];
             if (table[hash] == null) {
-              table[hash] = [row];
+              table[hash] = [rowId];
             } else {
-              table[hash].push(row);
+              table[hash].push(rowId);
             }
           });
+          rowId ++;
         }
       }
     }
@@ -71,21 +84,56 @@ export default class HashJoinIterator implements RowIterator {
     let output: Row[] = [];
     for (let i = 0; i < value.length; ++i) {
       let row = value[i];
-      // TODO Dedupe exactly same output
+      let outputIds = new Heap<number>();
       this.comparePlans.forEach((plan) => {
         let hash = objectHash(plan.evaluate(row));
         let table = this.tables[plan.tableId];
         if (table[hash] != null) {
-          table[hash].forEach((otherRow) => {
-            let newRow = { ...row, ...otherRow };
-            output.push(newRow);
+          table[hash].forEach(rowId => {
+            outputIds.push(rowId);
           });
         }
       });
+      // Pull values from output ids
+      let last = null;
+      if (outputIds.empty()) {
+        if (this.leftJoin) {
+          output.push({ ...value[i], ...this.rightFiller });
+        }
+      } else {
+        while (!outputIds.empty()) {
+          let rowId = outputIds.pop();
+          if (last === rowId) continue;
+          last = rowId;
+          output.push({ ...row, ...this.rightCache[rowId] });
+        }
+      }
     }
     return { done, value: output };
   }
   getTables() {
     return [...this.left.getTables(), ...this.right.getTables()];
+  }
+  async getColumns() {
+    return {
+      ...(await this.left.getColumns()),
+      ...(await this.right.getColumns()),
+    };
+  }
+  getOrder() {
+    let leftOrder = this.left.getOrder();
+    if (leftOrder == null) return null;
+    let rightOrder = this.right.getOrder();
+    if (rightOrder == null) return leftOrder;
+    return [...leftOrder, ...rightOrder];
+  }
+  rewind(parentRow: Row) {
+    this.rightCache = null;
+    this.tables = null;
+    this.left.rewind(parentRow);
+    this.right.rewind(parentRow);
+  }
+  [Symbol.asyncIterator]() {
+    return this;
   }
 }

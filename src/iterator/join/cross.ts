@@ -20,16 +20,14 @@ export default class CrossJoinIterator implements RowIterator {
     this.where = where;
     this.leftJoin = leftJoin;
     this.comparator = compileExpression(where);
+    this.rightFiller = {};
+    for (let key of this.right.getTables()) {
+      this.rightFiller[key] = {};
+    }
   }
   async next(): Promise<IteratorResult<Row[]>> {
     if (this.rightCache == null) {
       this.rightCache = await drainIterator(this.right);
-    }
-    if (this.leftJoin && this.rightFiller == null) {
-      this.rightFiller = {};
-      for (let key in await this.right.getColumns()) {
-        this.rightFiller[key] = {};
-      }
     }
     let { done, value } = await this.left.next();
     if (done) return { done, value };
