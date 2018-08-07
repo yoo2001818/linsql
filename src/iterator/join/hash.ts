@@ -1,11 +1,9 @@
 import { Expression } from 'yasqlp';
-import Heap from 'heap';
 import { Row } from '../../row';
 import planHashJoin, { HashJoinPlan } from '../../hashJoinPlanner';
 import RowIterator from '../type';
 import compileExpression from '../../util/compileExpression';
 import hashCode from '../../util/hashCode';
-import drainIterator from '../../util/drainIterator';
 
 export default class HashJoinIterator implements RowIterator {
   left: RowIterator;
@@ -85,12 +83,17 @@ export default class HashJoinIterator implements RowIterator {
     for (let i = 0; i < value.length; ++i) {
       let row = value[i];
       let hit = false;
+      let conflictTable: number[][] = [];
       this.comparePlans.forEach((plan) => {
         let hash = hashCode(plan.evaluate(row));
         let table = this.tables[plan.tableId];
         if (table[hash] != null) {
           table[hash].forEach(rowId => {
+            let conflicts = conflictTable[rowId % 32];
+            if (conflicts != null && conflicts.includes(rowId)) return;
             hit = true;
+            if (conflicts != null) conflicts.push(rowId);
+            else conflictTable[rowId % 32] = [rowId];
             output.push({ ...row, ...this.rightCache[rowId] });
           });
         }
