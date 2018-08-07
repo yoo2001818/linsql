@@ -3,6 +3,7 @@ import { Row } from '../../row';
 import RowIterator from '../type';
 import compileExpression from '../../util/compileExpression';
 import drainIterator from '../../util/drainIterator';
+import createJoinRow from '../../util/joinRow';
 
 export default class CrossJoinIterator implements RowIterator {
   left: RowIterator;
@@ -12,6 +13,7 @@ export default class CrossJoinIterator implements RowIterator {
   leftJoin: boolean;
   rightFiller: { [key: string]: Row };
   comparator: (input: Row) => any;
+  joinRow: ReturnType<typeof createJoinRow>;
   constructor(left: RowIterator, right: RowIterator, where: Expression,
     leftJoin: boolean = false,
   ) {
@@ -24,6 +26,7 @@ export default class CrossJoinIterator implements RowIterator {
     for (let key of this.right.getTables()) {
       this.rightFiller[key] = {};
     }
+    this.joinRow = createJoinRow(this.left.getTables(), this.right.getTables());
   }
   async next(): Promise<IteratorResult<Row[]>> {
     if (this.rightCache == null) {
@@ -35,14 +38,14 @@ export default class CrossJoinIterator implements RowIterator {
     for (let i = 0; i < value.length; ++i) {
       let hit = false;
       for (let j = 0; j < this.rightCache.length; ++j) {
-        let row = { ...value[i], ...this.rightCache[j] };
+        let row = this.joinRow(value[i], this.rightCache[j]);
         if (this.comparator(row)) {
           output.push(row);
           hit = true;
         }
       }
       if (!hit && this.leftJoin) {
-        output.push({ ...value[i], ...this.rightFiller });
+        output.push(this.joinRow(value[i], this.rightFiller));
       }
     }
     return { done, value: output };
@@ -63,7 +66,7 @@ export default class CrossJoinIterator implements RowIterator {
     if (rightOrder == null) return leftOrder;
     return [...leftOrder, ...rightOrder];
   }
-  rewind(parentRow: Row) {
+  rewind(parentRow?: Row) {
     this.rightCache = null;
     this.left.rewind(parentRow);
     this.right.rewind(parentRow);

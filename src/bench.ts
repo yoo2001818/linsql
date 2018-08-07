@@ -26,14 +26,14 @@ for (let i = 0; i < 1000; ++i) {
 
 async function test() {
   let now = performance.now();
-  for (let i = 0; i < 100; ++i) {
+  for (let i = 0; i < 500; ++i) {
     let iter = new InputIterator('parents', parentDataset);
     let iter2 = new InputIterator('children', childDataset);
     let iter3 = new HashJoinIterator(iter, iter2, getWhere(
       'SELECT 1 WHERE parents.id = children.parent_id;'));
     await drainIterator(iter3);
   }
-  console.log('Took ' + (performance.now() - now) / 100);
+  console.log('Took ' + (performance.now() - now) / 500);
 }
 
 test();

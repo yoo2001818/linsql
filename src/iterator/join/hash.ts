@@ -4,6 +4,7 @@ import planHashJoin, { HashJoinPlan } from '../../hashJoinPlanner';
 import RowIterator from '../type';
 import compileExpression from '../../util/compileExpression';
 import hashCode from '../../util/hashCode';
+import createJoinRow from '../../util/joinRow';
 
 export default class HashJoinIterator implements RowIterator {
   left: RowIterator;
@@ -12,6 +13,7 @@ export default class HashJoinIterator implements RowIterator {
   rightCache: Row[];
   rightFiller: { [key: string]: Row };
   tables: { [key: string]: number[] }[];
+  joinRow: ReturnType<typeof createJoinRow>;
   plan: HashJoinPlan;
   comparator: (input: Row) => any;
   tablePlans: { tableId: number, evaluate: (row: Row) => any }[];
@@ -48,8 +50,9 @@ export default class HashJoinIterator implements RowIterator {
     for (let key of this.right.getTables()) {
       this.rightFiller[key] = {};
     }
+    this.joinRow = createJoinRow(this.left.getTables(), this.right.getTables());
   }
-  async next(arg: any): Promise<IteratorResult<Row[]>> {
+  async next(arg?: any): Promise<IteratorResult<Row[]>> {
     if (this.rightCache == null) {
       this.rightCache = [];
       this.tables = this.plan.tables.map(() => ({}));
@@ -83,23 +86,26 @@ export default class HashJoinIterator implements RowIterator {
     for (let i = 0; i < value.length; ++i) {
       let row = value[i];
       let hit = false;
+      // Use simple 32 length long hash table for conflict detection.
       let conflictTable: number[][] = [];
       this.comparePlans.forEach((plan) => {
         let hash = hashCode(plan.evaluate(row));
         let table = this.tables[plan.tableId];
         if (table[hash] != null) {
           table[hash].forEach(rowId => {
-            let conflicts = conflictTable[rowId % 32];
+            let conflicts = conflictTable[rowId & 31];
             if (conflicts != null && conflicts.includes(rowId)) return;
             hit = true;
             if (conflicts != null) conflicts.push(rowId);
-            else conflictTable[rowId % 32] = [rowId];
-            output.push({ ...row, ...this.rightCache[rowId] });
+            else conflictTable[rowId & 31] = [rowId];
+            let resultRow = this.joinRow(row, this.rightCache[rowId]);
+            if (!this.plan.complete && !this.comparator(resultRow)) return;
+            output.push(resultRow);
           });
         }
       });
       if (!hit && this.leftJoin) {
-        output.push({ ...value[i], ...this.rightFiller });
+        output.push(this.joinRow(value[i], this.rightFiller));
       }
     }
     return { done, value: output };
@@ -120,7 +126,7 @@ export default class HashJoinIterator implements RowIterator {
     if (rightOrder == null) return leftOrder;
     return [...leftOrder, ...rightOrder];
   }
-  rewind(parentRow: Row) {
+  rewind(parentRow?: Row) {
     this.rightCache = null;
     this.tables = null;
     this.left.rewind(parentRow);

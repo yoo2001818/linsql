@@ -11,6 +11,7 @@ export type HashJoinPlan = {
   compares: { value: Expression[], tableId: number }[],
   leftDepends: boolean,
   rightDepends: boolean,
+  complete: boolean,
 };
 
 export default function planHashJoin(
@@ -36,6 +37,7 @@ function mergePlanDepend(
     compares: [],
     leftDepends: plans.some(v => v.leftDepends),
     rightDepends: plans.some(v => v.rightDepends),
+    complete: plans.every(v => v.complete),
   };
 }
 
@@ -67,6 +69,7 @@ function planBlock(expr: Expression, input: HashJoinInput): HashJoinPlan {
               compares: smallerPlan.compares,
               leftDepends: smallerPlan.leftDepends || largerPlan.leftDepends,
               rightDepends: smallerPlan.rightDepends || largerPlan.rightDepends,
+              complete: smallerPlan.complete && largerPlan.complete,
             };
           } else if (!smallerMergeable) {
             return {
@@ -74,6 +77,7 @@ function planBlock(expr: Expression, input: HashJoinInput): HashJoinPlan {
               compares: largerPlan.compares,
               leftDepends: smallerPlan.leftDepends || largerPlan.leftDepends,
               rightDepends: smallerPlan.rightDepends || largerPlan.rightDepends,
+              complete: smallerPlan.complete && largerPlan.complete,
             };
           } else {
             // Actually merge the tuples.
@@ -110,6 +114,7 @@ function planBlock(expr: Expression, input: HashJoinInput): HashJoinPlan {
             compares: [],
             leftDepends: plans.some(v => v.leftDepends),
             rightDepends: plans.some(v => v.rightDepends),
+            complete: plans.every(v => v.complete),
           };
         }
         return plans.reduce((leftPlan, rightPlan) => {
@@ -194,6 +199,7 @@ function planBlock(expr: Expression, input: HashJoinInput): HashJoinPlan {
           ...mergePlanDepend(leftPlan, rightPlan),
           tables,
           compares,
+          complete: true,
         };
       } else {
         return mergePlanDepend(leftPlan, rightPlan);
@@ -230,6 +236,7 @@ function planBlock(expr: Expression, input: HashJoinInput): HashJoinPlan {
         compares: [],
         leftDepends: false,
         rightDepends: false,
+        complete: false,
       };
     case 'column': {
       return {
@@ -237,6 +244,7 @@ function planBlock(expr: Expression, input: HashJoinInput): HashJoinPlan {
         compares: [],
         leftDepends: input.left.includes(expr.table),
         rightDepends: input.right.includes(expr.table),
+        complete: false,
       };
     }
   }
