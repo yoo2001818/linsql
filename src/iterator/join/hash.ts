@@ -1,10 +1,10 @@
 import { Expression } from 'yasqlp';
-import objectHash from 'object-hash';
 import Heap from 'heap';
 import { Row } from '../../row';
 import planHashJoin, { HashJoinPlan } from '../../hashJoinPlanner';
 import RowIterator from '../type';
 import compileExpression from '../../util/compileExpression';
+import hashCode from '../../util/hashCode';
 import drainIterator from '../../util/drainIterator';
 
 export default class HashJoinIterator implements RowIterator {
@@ -66,7 +66,7 @@ export default class HashJoinIterator implements RowIterator {
           let row = rows[i];
           this.rightCache.push(row);
           this.tablePlans.forEach((plan) => {
-            let hash = objectHash(plan.evaluate(row));
+            let hash = hashCode(plan.evaluate(row));
             let table = this.tables[plan.tableId];
             if (table[hash] == null) {
               table[hash] = [rowId];
@@ -84,29 +84,19 @@ export default class HashJoinIterator implements RowIterator {
     let output: Row[] = [];
     for (let i = 0; i < value.length; ++i) {
       let row = value[i];
-      let outputIds = new Heap<number>();
+      let hit = false;
       this.comparePlans.forEach((plan) => {
-        let hash = objectHash(plan.evaluate(row));
+        let hash = hashCode(plan.evaluate(row));
         let table = this.tables[plan.tableId];
         if (table[hash] != null) {
           table[hash].forEach(rowId => {
-            outputIds.push(rowId);
+            hit = true;
+            output.push({ ...row, ...this.rightCache[rowId] });
           });
         }
       });
-      // Pull values from output ids
-      let last = null;
-      if (outputIds.empty()) {
-        if (this.leftJoin) {
-          output.push({ ...value[i], ...this.rightFiller });
-        }
-      } else {
-        while (!outputIds.empty()) {
-          let rowId = outputIds.pop();
-          if (last === rowId) continue;
-          last = rowId;
-          output.push({ ...row, ...this.rightCache[rowId] });
-        }
+      if (!hit && this.leftJoin) {
+        output.push({ ...value[i], ...this.rightFiller });
       }
     }
     return { done, value: output };
