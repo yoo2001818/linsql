@@ -28,11 +28,11 @@ export default class CrossJoinIterator implements RowIterator {
     }
     this.joinRow = createJoinRow(this.left.getTables(), this.right.getTables());
   }
-  async next(): Promise<IteratorResult<Row[]>> {
+  async next(arg?: any): Promise<IteratorResult<Row[]>> {
     if (this.rightCache == null) {
       this.rightCache = await drainIterator(this.right);
     }
-    let { done, value } = await this.left.next();
+    let { done, value } = await this.left.next(arg);
     if (done) return { done, value };
     let output = [];
     for (let i = 0; i < value.length; ++i) {
