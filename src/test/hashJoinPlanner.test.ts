@@ -13,6 +13,7 @@ describe('hashJoinPlanner', () => {
       .toEqual({
         leftDepends: true,
         rightDepends: true,
+        complete: true,
         compares: [{
           tableId: 0,
           value: [{ type: 'column', table: 'a', name: 'a' }],
@@ -25,6 +26,7 @@ describe('hashJoinPlanner', () => {
       .toEqual({
         leftDepends: true,
         rightDepends: false,
+        complete: false,
         compares: [],
         tables: [],
       });
@@ -34,6 +36,7 @@ describe('hashJoinPlanner', () => {
       ['a'], ['b'])).toEqual({
         leftDepends: true,
         rightDepends: true,
+        complete: true,
         compares: [{
           tableId: 0,
           value: [
@@ -53,6 +56,7 @@ describe('hashJoinPlanner', () => {
       ['a'], ['b'])).toEqual({
         leftDepends: true,
         rightDepends: true,
+        complete: true,
         compares: [{
           tableId: 0,
           value: [
@@ -73,6 +77,7 @@ describe('hashJoinPlanner', () => {
       ['a'], ['b'])).toEqual({
         leftDepends: true,
         rightDepends: true,
+        complete: true,
         compares: [{
           tableId: 0,
           value: [
@@ -90,6 +95,7 @@ describe('hashJoinPlanner', () => {
       ['a'], ['b'])).toEqual({
         leftDepends: true,
         rightDepends: true,
+        complete: true,
         compares: [{
           tableId: 0,
           value: [
@@ -109,6 +115,7 @@ describe('hashJoinPlanner', () => {
       ['a'], ['b'])).toEqual({
         leftDepends: true,
         rightDepends: true,
+        complete: true,
         compares: [{
           tableId: 0,
           value: [
@@ -132,6 +139,7 @@ describe('hashJoinPlanner', () => {
       ['a'], ['b'])).toEqual({
         leftDepends: true,
         rightDepends: true,
+        complete: true,
         compares: [{
           tableId: 0,
           value: [
@@ -158,6 +166,7 @@ describe('hashJoinPlanner', () => {
       ['a'], ['b'])).toEqual({
         leftDepends: true,
         rightDepends: true,
+        complete: true,
         compares: [{
           tableId: 0,
           value: [
@@ -183,6 +192,7 @@ describe('hashJoinPlanner', () => {
       ['a'], ['b'])).toEqual({
         leftDepends: true,
         rightDepends: true,
+        complete: true,
         compares: [{
           tableId: 0,
           value: [
@@ -201,6 +211,7 @@ describe('hashJoinPlanner', () => {
       ['a'], ['b'])).toEqual({
         leftDepends: true,
         rightDepends: true,
+        complete: true,
         compares: [{
           tableId: 0,
           value: [
@@ -223,6 +234,7 @@ describe('hashJoinPlanner', () => {
       ['a'], ['b'])).toEqual({
         leftDepends: true,
         rightDepends: true,
+        complete: false,
         compares: [{
           tableId: 0,
           value: [
@@ -246,6 +258,7 @@ describe('hashJoinPlanner', () => {
       ['a'], ['b'])).toEqual({
         leftDepends: true,
         rightDepends: true,
+        complete: true,
         compares: [{
           tableId: 0,
           value: [
@@ -268,6 +281,7 @@ describe('hashJoinPlanner', () => {
       ['a'], ['b'])).toEqual({
         leftDepends: true,
         rightDepends: true,
+        complete: true,
         compares: [{
           tableId: 0,
           value: [
@@ -296,6 +310,7 @@ describe('hashJoinPlanner', () => {
       ['a'], ['b'])).toEqual({
         leftDepends: true,
         rightDepends: true,
+        complete: true,
         compares: [{
           tableId: 0,
           value: [
@@ -313,6 +328,7 @@ describe('hashJoinPlanner', () => {
       ['a'], ['b'])).toEqual({
         leftDepends: true,
         rightDepends: true,
+        complete: false,
         compares: [],
         tables: [],
       });
@@ -321,6 +337,7 @@ describe('hashJoinPlanner', () => {
       ['a'], ['b'])).toEqual({
         leftDepends: true,
         rightDepends: true,
+        complete: true,
         compares: [],
         tables: [],
       });
@@ -331,6 +348,7 @@ describe('hashJoinPlanner', () => {
       ['a'], ['b'])).toEqual({
         leftDepends: true,
         rightDepends: true,
+        complete: false,
         compares: [],
         tables: [],
       });

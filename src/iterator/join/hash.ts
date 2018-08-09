@@ -27,12 +27,13 @@ export default class HashJoinIterator implements RowIterator {
     // Build hash join plan
     this.plan = planHashJoin(where,
       this.left.getTables(), this.right.getTables());
-    this.comparator = compileExpression(where);
+    this.comparator = compileExpression(this.getTables(), where);
     // Compile plan to evaluatable plans
     this.tablePlans = [];
     this.plan.tables.forEach((desc, tableId) => {
       desc.forEach(columns => {
-        let evalColumns = columns.map(v => compileExpression(v));
+        let evalColumns = columns.map(v =>
+          compileExpression(right.getTables(), v));
         this.tablePlans.push({
           tableId,
           evaluate: (row: Row) => evalColumns.map((evaluate) => evaluate(row)),
@@ -40,7 +41,8 @@ export default class HashJoinIterator implements RowIterator {
       });
     });
     this.comparePlans = this.plan.compares.map((desc) => {
-      let evalColumns = desc.value.map(v => compileExpression(v));
+      let evalColumns = desc.value.map(v =>
+        compileExpression(left.getTables(), v));
       return {
         tableId: desc.tableId,
         evaluate: (row: Row) => evalColumns.map((evaluate) => evaluate(row)),

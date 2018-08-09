@@ -12,7 +12,7 @@ export default class MapIterator implements RowIterator {
     // NOTE This doesn't handle distinct / all yet.
     this.columns = columns.map((column, i) => ({
       name: column.name || i.toString(),
-      map: compileExpression(column.value),
+      map: compileExpression(input.getTables(), column.value),
     }));
   }
   async next(arg?: any): Promise<IteratorResult<Row[]>> {

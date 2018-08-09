@@ -10,7 +10,7 @@ export default class FilterIterator implements RowIterator {
   constructor(input: RowIterator, where: Expression) {
     this.input = input;
     this.where = where;
-    this.comparator = compileExpression(where);
+    this.comparator = compileExpression(input.getTables(), where);
   }
   async next(arg?: any): Promise<IteratorResult<Row[]>> {
     let { value, done } = await this.input.next(arg);

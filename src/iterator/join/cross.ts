@@ -21,7 +21,7 @@ export default class CrossJoinIterator implements RowIterator {
     this.right = right;
     this.where = where;
     this.leftJoin = leftJoin;
-    this.comparator = compileExpression(where);
+    this.comparator = compileExpression(this.getTables(), where);
     this.rightFiller = {};
     for (let key of this.right.getTables()) {
       this.rightFiller[key] = {};
