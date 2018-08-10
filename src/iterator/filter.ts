@@ -6,7 +6,8 @@ import compileExpression from '../util/compileExpression';
 export default class FilterIterator implements RowIterator {
   input: RowIterator;
   where: Expression;
-  comparator: (input: Row) => any;
+  parentRow: Row;
+  comparator: (input: Row, parentRow: Row) => any;
   constructor(input: RowIterator, where: Expression) {
     this.input = input;
     this.where = where;
@@ -16,7 +17,7 @@ export default class FilterIterator implements RowIterator {
     let { value, done } = await this.input.next(arg);
     if (done) return { value, done: true };
     return {
-      value: value.filter(v => this.comparator(v)),
+      value: value.filter(v => this.comparator(v, this.parentRow)),
       done: false,
     };
   }
@@ -30,6 +31,7 @@ export default class FilterIterator implements RowIterator {
     return this.input.getOrder();
   }
   rewind(parentRow: Row) {
+    this.parentRow = parentRow;
     return this.input.rewind(parentRow);
   }
   [Symbol.asyncIterator]() {

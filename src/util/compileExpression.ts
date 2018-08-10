@@ -11,9 +11,10 @@ type CompileInput = { tables: string[] };
 
 export default function compileExpression(
   tables: string[], expression: Expression,
-): (row: Row) => any {
+): (row: Row, parent: Row) => any {
   let result = new Function('methods', 'row', 'parent',
-    getCode({ tables }, expression)) as (methods: MethodTable, row: Row) => any;
+    getCode({ tables }, expression)) as
+    (methods: MethodTable, row: Row, parent: Row) => any;
   return result.bind(null, METHODS);
 }
 

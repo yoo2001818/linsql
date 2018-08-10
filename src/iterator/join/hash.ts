@@ -9,13 +9,14 @@ import createJoinRow from '../../util/joinRow';
 export default class HashJoinIterator implements RowIterator {
   left: RowIterator;
   right: RowIterator;
+  parentRow: Row;
   leftJoin: boolean;
   rightCache: Row[];
   rightFiller: { [key: string]: Row };
   tables: { [key: string]: number[] }[];
   joinRow: ReturnType<typeof createJoinRow>;
   plan: HashJoinPlan;
-  comparator: (input: Row) => any;
+  comparator: (input: Row, parentRow: Row) => any;
   tablePlans: { tableId: number, evaluate: (row: Row) => any }[];
   comparePlans: { tableId: number, evaluate: (row: Row) => any }[];
   constructor(left: RowIterator, right: RowIterator, where: Expression,
@@ -36,7 +37,8 @@ export default class HashJoinIterator implements RowIterator {
           compileExpression(right.getTables(), v));
         this.tablePlans.push({
           tableId,
-          evaluate: (row: Row) => evalColumns.map((evaluate) => evaluate(row)),
+          evaluate: (row: Row) => evalColumns.map((evaluate) =>
+            evaluate(row, this.parentRow)),
         });
       });
     });
@@ -45,7 +47,8 @@ export default class HashJoinIterator implements RowIterator {
         compileExpression(left.getTables(), v));
       return {
         tableId: desc.tableId,
-        evaluate: (row: Row) => evalColumns.map((evaluate) => evaluate(row)),
+        evaluate: (row: Row) => evalColumns.map((evaluate) =>
+          evaluate(row, this.parentRow)),
       };
     });
     this.rightFiller = {};
@@ -101,7 +104,11 @@ export default class HashJoinIterator implements RowIterator {
             if (conflicts != null) conflicts.push(rowId);
             else conflictTable[rowId & 31] = [rowId];
             let resultRow = this.joinRow(row, this.rightCache[rowId]);
-            if (!this.plan.complete && !this.comparator(resultRow)) return;
+            if (!this.plan.complete &&
+              !this.comparator(resultRow, this.parentRow)
+            ) {
+              return;
+            }
             output.push(resultRow);
           });
         }
@@ -131,6 +138,7 @@ export default class HashJoinIterator implements RowIterator {
   rewind(parentRow?: Row) {
     this.rightCache = null;
     this.tables = null;
+    this.parentRow = parentRow;
     this.left.rewind(parentRow);
     this.right.rewind(parentRow);
   }

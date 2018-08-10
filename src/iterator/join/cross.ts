@@ -8,11 +8,12 @@ import createJoinRow from '../../util/joinRow';
 export default class CrossJoinIterator implements RowIterator {
   left: RowIterator;
   right: RowIterator;
+  parentRow: Row;
   rightCache: Row[];
   where: Expression;
   leftJoin: boolean;
   rightFiller: { [key: string]: Row };
-  comparator: (input: Row) => any;
+  comparator: (input: Row, parentRow: Row) => any;
   joinRow: ReturnType<typeof createJoinRow>;
   constructor(left: RowIterator, right: RowIterator, where: Expression,
     leftJoin: boolean = false,
@@ -39,7 +40,7 @@ export default class CrossJoinIterator implements RowIterator {
       let hit = false;
       for (let j = 0; j < this.rightCache.length; ++j) {
         let row = this.joinRow(value[i], this.rightCache[j]);
-        if (this.comparator(row)) {
+        if (this.comparator(row, this.parentRow)) {
           output.push(row);
           hit = true;
         }
@@ -68,6 +69,7 @@ export default class CrossJoinIterator implements RowIterator {
   }
   rewind(parentRow?: Row) {
     this.rightCache = null;
+    this.parentRow = parentRow;
     this.left.rewind(parentRow);
     this.right.rewind(parentRow);
   }

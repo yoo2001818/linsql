@@ -6,7 +6,8 @@ import compileExpression from '../util/compileExpression';
 export default class MapIterator implements RowIterator {
   input: RowIterator;
   where: Expression;
-  columns: { name: string, map: (input: Row) => any }[];
+  parentRow: Row;
+  columns: { name: string, map: (input: Row, parentRow: Row) => any }[];
   constructor(input: RowIterator, columns: SelectColumn[]) {
     this.input = input;
     // NOTE This doesn't handle distinct / all yet.
@@ -22,7 +23,7 @@ export default class MapIterator implements RowIterator {
       value: value.map(entry => {
         let output = { ...entry, __result: {} as any };
         this.columns.forEach(column => {
-          output.__result[column.name] = column.map(entry);
+          output.__result[column.name] = column.map(entry, this.parentRow);
         });
         return output;
       }),
@@ -42,6 +43,7 @@ export default class MapIterator implements RowIterator {
     return this.input.getOrder();
   }
   rewind(parentRow: Row) {
+    this.parentRow = parentRow;
     return this.input.rewind(parentRow);
   }
   [Symbol.asyncIterator]() {
