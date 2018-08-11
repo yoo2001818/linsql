@@ -13,12 +13,13 @@ function getWhere(code: string): Expression {
 }
 
 describe('FilterIterator', () => {
+  let iterInput: RowIterator;
   let iter: RowIterator;
   beforeEach(() => {
-    iter = new InputIterator('abc', [
+    iterInput = new InputIterator('abc', [
       { a: 'test', b: 1 }, { a: 'abc', b: 3 }, { a: 'test', b: 3 },
     ], ['b']);
-    iter = new FilterIterator(iter, getWhere(
+    iter = new FilterIterator(iterInput, getWhere(
       'SELECT 1 WHERE abc.a = \'test\' AND abc.b IN (1, 3);'));
   });
   it('should return right result', async () => {
@@ -33,6 +34,19 @@ describe('FilterIterator', () => {
     expect(await drainIterator(iter)).toEqual([
       { abc: { a: 'test', b: 1 } },
       { abc: { a: 'test', b: 3 } },
+    ]);
+  });
+  it('should be rewindable with parent row', async () => {
+    iter = new FilterIterator(iterInput, getWhere(
+      'SELECT 1 WHERE abc.b = test.a;'));
+    iter.rewind({ test: { a: 3 } });
+    expect(await drainIterator(iter)).toEqual([
+      { abc: { a: 'abc', b: 3 } },
+      { abc: { a: 'test', b: 3 } },
+    ]);
+    iter.rewind({ test: { a: 1 } });
+    expect(await drainIterator(iter)).toEqual([
+      { abc: { a: 'test', b: 1 } },
     ]);
   });
   it('should return order if specified', async () => {

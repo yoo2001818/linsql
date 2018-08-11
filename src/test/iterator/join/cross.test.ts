@@ -85,6 +85,18 @@ describe('CrossJoinIterator', () => {
       accounts: { id: 4, user_id: 4, name: '현금', amount: 0 },
     }]);
   });
+  it('should be rewindable with parent row', async () => {
+    iter = new CrossJoinIterator(iter, iter2, getWhere(
+      'SELECT 1 WHERE users.id = accounts.user_id AND users.id = test.a;'));
+    iter.rewind({ test: { a: 3 } });
+    expect(await drainIterator(iter)).toEqual([{
+      users: { id: 3, name: 'David', age: 10 },
+      accounts: { id: 3, user_id: 3, name: '정기적금', amount: 1000 },
+    }, {
+      users: { id: 3, name: 'David', age: 10 },
+      accounts: { id: 5, user_id: 3, name: '잡손실', amount: 1000 },
+    }]);
+  });
   it('should return correct order', async () => {
     let dummyWhere = getWhere('SELECT 1 WHERE 1;');
     expect(new CrossJoinIterator(

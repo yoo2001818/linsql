@@ -14,12 +14,13 @@ function getColumns(code: string): SelectColumn[] {
 }
 
 describe('MapIterator', () => {
+  let iterInput: RowIterator;
   let iter: RowIterator;
   beforeEach(() => {
-    iter = new InputIterator('abc', [
+    iterInput = new InputIterator('abc', [
       { a: 'test', b: 1 }, { a: 'abc', b: 3 }, { a: 'test', b: 3 },
     ], ['b']);
-    iter = new MapIterator(iter, getColumns(
+    iter = new MapIterator(iterInput, getColumns(
       'SELECT abc.a + abc.b AS added, FLOOR((abc.b + 20) / 2);'));
     iter = new OutputIterator(iter);
   });
@@ -37,6 +38,17 @@ describe('MapIterator', () => {
       { added: 'test1', '1': 10 },
       { added: 'abc3', '1': 11 },
       { added: 'test3', '1': 11 },
+    ]);
+  });
+  it('should be rewindable with parent row', async () => {
+    iter = new MapIterator(iterInput, getColumns(
+      'SELECT abc.a + test.b AS added, test.a / abc.b;'));
+    iter = new OutputIterator(iter);
+    iter.rewind({ test: { b: ' world', a: 30 } });
+    expect(await drainIterator(iter)).toEqual([
+      { added: 'test world', '1': 30 },
+      { added: 'abc world', '1': 10 },
+      { added: 'test world', '1': 10 },
     ]);
   });
   it('should return order if specified', async () => {
