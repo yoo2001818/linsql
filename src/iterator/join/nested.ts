@@ -12,6 +12,10 @@ export default class NestedJoinIterator implements RowIterator {
   leftJoin: boolean;
   rightFiller: { [key: string]: Row };
   joinRow: ReturnType<typeof createJoinRow>;
+  leftBuffer: Row[] = null;
+  leftPos: number = 0;
+  rightOngoing: boolean = false;
+  rightHit: boolean = false;
   constructor(left: RowIterator, right: RowIterator, where: Expression,
     leftJoin: boolean = false,
   ) {
@@ -28,26 +32,36 @@ export default class NestedJoinIterator implements RowIterator {
     this.joinRow = createJoinRow(this.left.getTables(), this.right.getTables());
   }
   async next(arg?: any): Promise<IteratorResult<Row[]>> {
-    let { done, value } = await this.left.next(arg);
-    if (done) return { done, value };
-    let output = [];
-    for (let i = 0; i < value.length; ++i) {
-      let hit = false;
-      if (this.parentRow != null) {
-        this.right.rewind({ ...this.parentRow, ...value[i] });
-      } else {
-        this.right.rewind(value[i])
-      }
-      let rowOutput = await drainIterator(this.right);
-      for (let j = 0; j < rowOutput.length; ++j) {
-        output.push(this.joinRow(value[i], rowOutput[j]));
-        hit = true;
-      }
-      if (!hit && this.leftJoin) {
-        output.push(this.joinRow(value[i], this.rightFiller));
-      }
+    if (this.leftBuffer == null || this.leftBuffer.length <= this.leftPos) {
+      let { done, value } = await this.left.next(arg);
+      if (done) return { done, value };
+      this.leftBuffer = value;
     }
-    return { done, value: output };
+    let row = this.leftBuffer[this.leftPos];
+    if (!this.rightOngoing) {
+      if (this.parentRow != null) {
+        this.right.rewind({ ...this.parentRow, ...row });
+      } else {
+        this.right.rewind(row);
+      }
+      this.rightOngoing = true;
+      this.rightHit = false;
+    }
+    let output = [];
+    let { done, value } = await this.right.next();
+    if (done) {
+      this.leftPos ++;
+      this.rightOngoing = false;
+      if (!this.rightHit && this.leftJoin) {
+        return { done: false, value: [this.joinRow(row, this.rightFiller)] };
+      }
+      return this.next(arg);
+    }
+    for (let j = 0; j < value.length; ++j) {
+      output.push(this.joinRow(row, value[j]));
+      this.rightHit = true;
+    }
+    return { done: false, value: output };
   }
   getTables() {
     return [...this.left.getTables(), ...this.right.getTables()];
@@ -69,6 +83,9 @@ export default class NestedJoinIterator implements RowIterator {
     this.parentRow = parentRow;
     this.left.rewind(parentRow);
     this.right.rewind(parentRow);
+    this.leftBuffer = null;
+    this.leftPos = 0;
+    this.rightOngoing = false;
   }
   [Symbol.asyncIterator]() {
     return this;
