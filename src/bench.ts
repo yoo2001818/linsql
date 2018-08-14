@@ -19,21 +19,23 @@ let parentDataset: any[] = [];
 let childDataset: any[] = [];
 for (let i = 0; i < 1000; ++i) {
   parentDataset.push({ id: i, name: 'A test ' + i });
-  for (let j = 0; j < 10; ++j) {
+  for (let j = 0; j < 1000; ++j) {
     childDataset.push({ id: i * 10 + j, parent_id: i, name: 'Child ' + j });
   }
 }
 
 async function test() {
   let now = performance.now();
-  for (let i = 0; i < 500; ++i) {
+  for (let i = 0; i < 10; ++i) {
     let iter = new InputIterator('parents', parentDataset);
     let iter2 = new InputIterator('children', childDataset);
-    let iter3 = new HashJoinIterator(iter, iter2, getWhere(
+    let iter3 = new HashJoinIterator(iter2, iter, getWhere(
       'SELECT 1 WHERE parents.id = children.parent_id;'));
-    await drainIterator(iter3);
+    while (!(await iter3.next()).done);
   }
-  console.log('Took ' + (performance.now() - now) / 500);
+  console.log('Took ' + (performance.now() - now) / 10);
 }
 
 test();
+
+setInterval(() => {}, 1000);

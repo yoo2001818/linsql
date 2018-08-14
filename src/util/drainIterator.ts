@@ -5,9 +5,13 @@ export default async function drainIterator<T>(
   let hasNext = true;
   let it = iterable[Symbol.asyncIterator]();
   do {
-    let result = await it.next(arg);
-    hasNext = !result.done;
-    output.push.apply(output, result.value);
+    let { done, value } = await it.next(arg);
+    hasNext = !done;
+    if (hasNext) {
+      for (let i = 0; i < value.length; ++i) {
+        output.push(value[i]);
+      }
+    }
   } while(hasNext);
   return output;
 }

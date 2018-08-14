@@ -31,7 +31,7 @@ describe('HashJoinIterator (1000 * 10)', () => {
     iter2 = new InputIterator('children', childDataset);
   });
   it('should run', async () => {
-    iter = new HashJoinIterator(iter, iter2, getWhere(
+    iter = new HashJoinIterator(iter2, iter, getWhere(
       'SELECT 1 WHERE parents.id = children.parent_id;'));
     await drainIterator(iter);
   });
