@@ -15,11 +15,11 @@ function compileSorter(tables: string[], order: OrderByRef[]) {
       let resultA = evaluator(a, parentRow);
       let resultB = evaluator(b, parentRow);
       if (directions[i]) {
-        if (resultA > resultB) return 1;
-        if (resultA < resultB) return -1;
-      } else {
-        if (resultA < resultB) return 1;
         if (resultA > resultB) return -1;
+        if (resultA < resultB) return 1;
+      } else {
+        if (resultA < resultB) return -1;
+        if (resultA > resultB) return 1;
       }
     }
     return 0;
@@ -28,19 +28,20 @@ function compileSorter(tables: string[], order: OrderByRef[]) {
 
 export default class SortIterator implements RowIterator {
   input: RowIterator;
-  order: string[][];
+  order: OrderByRef[];
   sorter: (parentRow: Row, a: Row, b: Row) => number;
   parentRow: Row;
   done: boolean;
   constructor(input: RowIterator, order: OrderByRef[]) {
     this.input = input;
     this.sorter = compileSorter(this.input.getTables(), order);
-    // TODO iterator's order has to be more complicated than this
+    this.order = order;
     this.done = false;
   }
   async next(arg?: any): Promise<IteratorResult<Row[]>> {
     if (this.done) return { value: null, done: true };
     let result = await drainIterator(this.input);
+    this.done = true;
     result.sort((a: Row, b: Row) => this.sorter(this.parentRow, a, b));
     return { value: result, done: false };
   }
@@ -51,10 +52,10 @@ export default class SortIterator implements RowIterator {
     return this.input.getColumns();
   }
   getOrder() {
-    return this.input.getOrder();
+    return this.order;
   }
   rewind(parentRow: Row) {
-    this.done = true;
+    this.done = false;
     this.parentRow = parentRow;
     return this.input.rewind(parentRow);
   }

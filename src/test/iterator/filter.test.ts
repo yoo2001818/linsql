@@ -1,4 +1,4 @@
-import parse, { Expression } from 'yasqlp';
+import parse, { Expression, OrderByRef } from 'yasqlp';
 
 import InputIterator from '../../iterator/input';
 import FilterIterator from '../../iterator/filter';
@@ -9,6 +9,12 @@ import drainIterator from '../../util/drainIterator';
 function getWhere(code: string): Expression {
   let stmt = parse(code)[0];
   if (stmt.type === 'select') return stmt.where;
+  throw new Error('Given statement is not select stement');
+}
+
+function getOrderBy(code: string): OrderByRef[] {
+  let stmt = parse(code)[0];
+  if (stmt.type === 'select') return stmt.order;
   throw new Error('Given statement is not select stement');
 }
 
@@ -50,6 +56,6 @@ describe('FilterIterator', () => {
     ]);
   });
   it('should return order if specified', async () => {
-    expect(iter.getOrder()).toEqual([['abc', 'b']]);
+    expect(iter.getOrder()).toEqual(getOrderBy('SELECT 1 ORDER BY abc.b;'));
   });
 });

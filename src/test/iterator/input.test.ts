@@ -1,6 +1,14 @@
+import parse, { OrderByRef } from 'yasqlp';
+
 import InputIterator from '../../iterator/input';
 
 import drainIterator from '../../util/drainIterator';
+
+function getOrderBy(code: string): OrderByRef[] {
+  let stmt = parse(code)[0];
+  if (stmt.type === 'select') return stmt.order;
+  throw new Error('Given statement is not select stement');
+}
 
 describe('InputIterator', () => {
   let iter: InputIterator;
@@ -49,6 +57,6 @@ describe('InputIterator', () => {
     ]);
   });
   it('should return order if specified', async () => {
-    expect(iter.getOrder()).toEqual([['abc', 'a']]);
+    expect(iter.getOrder()).toEqual(getOrderBy('SELECT 1 ORDER BY abc.a;'));
   });
 });

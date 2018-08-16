@@ -1,4 +1,4 @@
-import parse, { Expression } from 'yasqlp';
+import parse, { Expression, OrderByRef } from 'yasqlp';
 
 import InputIterator from '../../../iterator/input';
 import NestedJoinIterator from '../../../iterator/join/nested';
@@ -9,6 +9,12 @@ import drainIterator from '../../../util/drainIterator';
 function getWhere(code: string): Expression {
   let stmt = parse(code)[0];
   if (stmt.type === 'select') return stmt.where;
+  throw new Error('Given statement is not select stement');
+}
+
+function getOrderBy(code: string): OrderByRef[] {
+  let stmt = parse(code)[0];
+  if (stmt.type === 'select') return stmt.order;
   throw new Error('Given statement is not select stement');
 }
 
@@ -102,7 +108,8 @@ describe('NestedJoinIterator', () => {
     expect(new NestedJoinIterator(
       new InputIterator('a', [], ['name']),
       new InputIterator('b', [], ['name']),
-      dummyWhere).getOrder()).toEqual([['a', 'name'], ['b', 'name']]);
+      dummyWhere).getOrder()).toEqual(
+        getOrderBy('SELECT 1 ORDER BY a.name, b.name;'));
     expect(new NestedJoinIterator(
       new InputIterator('a', []),
       new InputIterator('b', [], ['name']),
@@ -110,6 +117,6 @@ describe('NestedJoinIterator', () => {
     expect(new NestedJoinIterator(
       new InputIterator('a', [], ['name']),
       new InputIterator('b', []),
-      dummyWhere).getOrder()).toEqual([['a', 'name']]);
+      dummyWhere).getOrder()).toEqual(getOrderBy('SELECT 1 ORDER BY a.name;'));
   });
 });

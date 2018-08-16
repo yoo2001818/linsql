@@ -1,4 +1,4 @@
-import parse, { SelectColumn } from 'yasqlp';
+import parse, { SelectColumn, OrderByRef } from 'yasqlp';
 
 import InputIterator from '../../iterator/input';
 import MapIterator from '../../iterator/map';
@@ -10,6 +10,12 @@ import drainIterator from '../../util/drainIterator';
 function getColumns(code: string): SelectColumn[] {
   let stmt = parse(code)[0];
   if (stmt.type === 'select') return stmt.columns;
+  throw new Error('Given statement is not select stement');
+}
+
+function getOrderBy(code: string): OrderByRef[] {
+  let stmt = parse(code)[0];
+  if (stmt.type === 'select') return stmt.order;
   throw new Error('Given statement is not select stement');
 }
 
@@ -52,6 +58,6 @@ describe('MapIterator', () => {
     ]);
   });
   it('should return order if specified', async () => {
-    expect(iter.getOrder()).toEqual([['abc', 'b']]);
+    expect(iter.getOrder()).toEqual(getOrderBy('SELECT 1 ORDER BY abc.b;'));
   });
 });
