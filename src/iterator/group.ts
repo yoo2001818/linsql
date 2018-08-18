@@ -2,21 +2,16 @@ import { Expression } from 'yasqlp';
 import deepEqual from 'deep-equal';
 import { Row } from '../row';
 import RowIterator from './type';
+import Aggregate from '../aggregate/type';
+import AggregateTypes from '../aggregate';
 import compileExpression, { getCode } from '../util/compileExpression';
-
-type AggregateData = {
-  min?: any,
-  max?: any,
-  count?: any,
-  sum?: any,
-  sumSquared?: any,
-};
 
 export default class GroupIterator implements RowIterator {
   input: RowIterator;
   groupTargets: ((input: Row, parentRow: Row) => any)[];
-  aggregates: Expression[];
-  aggregateData: AggregateData[];
+  aggregates: {
+    data: Aggregate, evaluate: ((input: Row, parentRow: Row) => any),
+  }[];
   lastValue: any[];
   parentRow: Row;
   constructor(
@@ -24,7 +19,19 @@ export default class GroupIterator implements RowIterator {
   ) {
     this.input = input;
     this.groupTargets = group.map(v => compileExpression(input.getTables(), v));
-    this.aggregates = aggregates;
+    this.aggregates = aggregates.map(aggr => {
+      if (aggr.type !== 'aggregation') {
+        throw new Error('Aggregate expression type must be aggregation');
+      }
+      let aggrCreator = AggregateTypes[aggr.name];
+      if (aggrCreator == null) {
+        throw new Error('Unknown aggregation ' + aggr.name);
+      }
+      return {
+        data: aggrCreator(),
+        evaluate: compileExpression(input.getTables(), aggr.value),
+      }
+    });
     // TODO Compare cardinality, ignore entry if cardinality is 1
     let originalOrder = input.getOrder();
     for (let i = 0; i < group.length; ++i) {
