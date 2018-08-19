@@ -13,13 +13,14 @@ function parseNumber(value: any) {
 }
 
 export class SumAggregate implements Aggregate {
-  sum: number = 0;
+  sum: number = null;
   init() {
-    this.sum = 0;
+    this.sum = null;
   }
   next(value: any) {
     let newValue = parseNumber(value);
     if (newValue == null) return;
+    if (this.sum == null) this.sum = 0;
     this.sum += newValue;
   };
   finalize() {

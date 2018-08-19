@@ -1,6 +1,7 @@
 import { Expression, LogicalExpression, UnaryExpression, CompareExpression,
   BetweenExpression, BinaryExpression, InExpression, StringValue,
-  NumberValue, BooleanValue, ColumnValue, AggregateExpression, FunctionExpression, CaseExpression,
+  NumberValue, BooleanValue, ColumnValue, AggregateExpression,
+  FunctionExpression, CaseExpression,
 } from 'yasqlp';
 import { Row } from '../row';
 import METHODS from './methods';
@@ -20,6 +21,12 @@ export default function compileExpression(
 
 export function getCode(compileInput: CompileInput, expression: Expression) {
   return 'return ' + map(compileInput, expression) + ';';
+}
+
+export function getAggrName(
+  compileInput: CompileInput, expr: AggregateExpression
+) {
+  return expr.name + '-' + map(compileInput, expr.value);
 }
 
 function map(compileInput: CompileInput, expr: Expression): string {
@@ -75,12 +82,8 @@ const MAP_TABLE: {
     return accessor + '(' + expr.args.map(arg =>
       map(input, arg)).join(', ') + ')';
   },
-  aggregation: (input, expr: AggregateExpression) => {
-    let name = `row._aggr['${expr.name + '-' +
-      escape(map(input, expr.value))}']`;
-    // TODO Check validity
-    return name;
-  },
+  aggregation: (input, expr: AggregateExpression) =>
+    `row._aggr['${getAggrName(input, expr)}']`,
   case: (input, expr: CaseExpression) => {
     // Create IIFE for the statement
     let code = '(function () {\n';

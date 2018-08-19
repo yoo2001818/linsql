@@ -1,0 +1,90 @@
+import parse, { Expression } from 'yasqlp';
+
+import InputIterator from '../../iterator/input';
+import GroupIterator from '../../iterator/group';
+import RowIterator from '../../iterator/type';
+
+import drainIterator from '../../util/drainIterator';
+
+function getWhere(code: string): Expression {
+  let stmt = parse(code)[0];
+  if (stmt.type === 'select') return stmt.where;
+  throw new Error('Given statement is not select stement');
+}
+
+function getColumns(code: string): Expression[] {
+  let stmt = parse(code)[0];
+  if (stmt.type === 'select') return stmt.columns.map(v => v.value);
+  throw new Error('Given statement is not select stement');
+}
+
+describe('GroupIterator', () => {
+  let iterInput: RowIterator;
+  let iter: RowIterator;
+  beforeEach(() => {
+    iterInput = new InputIterator('table', [
+      { userId: 1, amount: 1000 },
+      { userId: 1, amount: 2000 },
+      { userId: 1, amount: 3000 },
+      { userId: 1, amount: 4000 },
+      { userId: 1, amount: 5000 },
+      { userId: 2, amount: -10 },
+      { userId: 2, amount: 500 },
+      { userId: 3, amount: null },
+      { userId: 3, amount: 25 },
+      { userId: 3, amount: -11 },
+      { userId: 4, amount: 'bow' },
+      { userId: 4, amount: 'wow' },
+    ], ['userId']);
+  });
+  it('should run group by correctly', async () => {
+    const aggrName = 'sum-row[\'table\'][\'amount\']';
+    iter = new GroupIterator(iterInput,
+      getColumns('SELECT table.userId;'),
+      getColumns('SELECT SUM(table.amount);'),
+    );
+    expect(await drainIterator(iter)).toEqual([
+      { table: { userId: 1, amount: 1000 }, _aggr: { [aggrName]: 15000 } },
+      { table: { userId: 2, amount: -10 }, _aggr: { [aggrName]: 490 } },
+      { table: { userId: 3, amount: null }, _aggr: { [aggrName]: 14 } },
+      { table: { userId: 4, amount: 'bow' }, _aggr: { [aggrName]: null } },
+    ]);
+  });
+  it('should be rewindable', async () => {
+    const aggrName = 'sum-row[\'table\'][\'amount\']';
+    iter = new GroupIterator(iterInput,
+      getColumns('SELECT table.userId;'),
+      getColumns('SELECT SUM(table.amount);'),
+    );
+    await drainIterator(iter);
+    iter.rewind();
+    expect(await drainIterator(iter)).toEqual([
+      { table: { userId: 1, amount: 1000 }, _aggr: { [aggrName]: 15000 } },
+      { table: { userId: 2, amount: -10 }, _aggr: { [aggrName]: 490 } },
+      { table: { userId: 3, amount: null }, _aggr: { [aggrName]: 14 } },
+      { table: { userId: 4, amount: 'bow' }, _aggr: { [aggrName]: null } },
+    ]);
+  });
+  it('should be rewindable with parent row', async () => {
+    const aggrName = 'sum-(row[\'table\'][\'amount\']+' +
+      'parent[\'parent\'][\'x\'])';
+    iter = new GroupIterator(iterInput,
+      getColumns('SELECT table.userId;'),
+      getColumns('SELECT SUM(table.amount + parent.x);'),
+    );
+    iter.rewind({ parent: { x: 0 } });
+    expect(await drainIterator(iter)).toEqual([
+      { table: { userId: 1, amount: 1000 }, _aggr: { [aggrName]: 15000 } },
+      { table: { userId: 2, amount: -10 }, _aggr: { [aggrName]: 490 } },
+      { table: { userId: 3, amount: null }, _aggr: { [aggrName]: 14 } },
+      { table: { userId: 4, amount: 'bow' }, _aggr: { [aggrName]: null } },
+    ]);
+    iter.rewind({ parent: { x: 30 } });
+    expect(await drainIterator(iter)).toEqual([
+      { table: { userId: 1, amount: 1000 }, _aggr: { [aggrName]: 15150 } },
+      { table: { userId: 2, amount: -10 }, _aggr: { [aggrName]: 550 } },
+      { table: { userId: 3, amount: null }, _aggr: { [aggrName]: 104 } },
+      { table: { userId: 4, amount: 'bow' }, _aggr: { [aggrName]: null } },
+    ]);
+  });
+});
