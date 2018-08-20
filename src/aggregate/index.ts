@@ -64,7 +64,7 @@ export class AvgAggregate implements Aggregate {
 export class MaxAggregate implements Aggregate {
   max: any = null;
   init() {
-    this.max = 0;
+    this.max = null;
   }
   next(value: any) {
     if (this.max == null || value > this.max) this.max = value;
@@ -77,7 +77,7 @@ export class MaxAggregate implements Aggregate {
 export class MinAggregate implements Aggregate {
   min: any = null;
   init() {
-    this.min = 0;
+    this.min = null;
   }
   next(value: any) {
     if (this.min == null || value < this.min) this.min = value;

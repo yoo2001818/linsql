@@ -50,6 +50,45 @@ describe('GroupIterator', () => {
       { table: { userId: 4, amount: 'bow' }, _aggr: { [aggrName]: null } },
     ]);
   });
+  it('should run group by correctly (count)', async () => {
+    const aggrName = 'count-row[\'table\'][\'amount\']';
+    iter = new GroupIterator(iterInput,
+      getColumns('SELECT table.userId;'),
+      getColumns('SELECT COUNT(table.amount);'),
+    );
+    expect(await drainIterator(iter)).toEqual([
+      { table: { userId: 1, amount: 1000 }, _aggr: { [aggrName]: 5 } },
+      { table: { userId: 2, amount: -10 }, _aggr: { [aggrName]: 2 } },
+      { table: { userId: 3, amount: null }, _aggr: { [aggrName]: 2 } },
+      { table: { userId: 4, amount: 'bow' }, _aggr: { [aggrName]: 2 } },
+    ]);
+  });
+  it('should run group by correctly (min)', async () => {
+    const aggrName = 'min-row[\'table\'][\'amount\']';
+    iter = new GroupIterator(iterInput,
+      getColumns('SELECT table.userId;'),
+      getColumns('SELECT MIN(table.amount);'),
+    );
+    expect(await drainIterator(iter)).toEqual([
+      { table: { userId: 1, amount: 1000 }, _aggr: { [aggrName]: 1000 } },
+      { table: { userId: 2, amount: -10 }, _aggr: { [aggrName]: -10 } },
+      { table: { userId: 3, amount: null }, _aggr: { [aggrName]: -11 } },
+      { table: { userId: 4, amount: 'bow' }, _aggr: { [aggrName]: 'bow' } },
+    ]);
+  });
+  it('should run group by correctly (max)', async () => {
+    const aggrName = 'max-row[\'table\'][\'amount\']';
+    iter = new GroupIterator(iterInput,
+      getColumns('SELECT table.userId;'),
+      getColumns('SELECT MAX(table.amount);'),
+    );
+    expect(await drainIterator(iter)).toEqual([
+      { table: { userId: 1, amount: 1000 }, _aggr: { [aggrName]: 5000 } },
+      { table: { userId: 2, amount: -10 }, _aggr: { [aggrName]: 500 } },
+      { table: { userId: 3, amount: null }, _aggr: { [aggrName]: 25 } },
+      { table: { userId: 4, amount: 'bow' }, _aggr: { [aggrName]: 'wow' } },
+    ]);
+  });
   it('should be rewindable', async () => {
     const aggrName = 'sum-row[\'table\'][\'amount\']';
     iter = new GroupIterator(iterInput,

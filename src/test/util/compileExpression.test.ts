@@ -51,7 +51,7 @@ describe('compileExpression', () => {
   });
   it('should compile aggregations', () => {
     expect(getCode(env, getWhere(`SELECT 1 WHERE COUNT(*);`)))
-      .toBe('return row._aggr[\'count-*\'];');
+      .toBe('return row._aggr[\'count-\\\'*\\\'\'];');
     expect(getCode(env, getWhere(`SELECT 1 WHERE COUNT(abc);`)))
       .toBe('return row._aggr[\'count-row._output[\\\'abc\\\']\'];');
   });
