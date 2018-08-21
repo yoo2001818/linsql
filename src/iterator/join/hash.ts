@@ -1,8 +1,8 @@
 import { Expression } from 'yasqlp';
 import { Row } from '../../row';
-import planHashJoin, { HashJoinPlan } from '../../hashJoinPlanner';
+import planHashJoin, { HashJoinPlan } from '../../planner/hashJoin';
 import RowIterator from '../type';
-import compileExpression from '../../util/compileExpression';
+import compileExpression from '../../expression';
 import hashCode from '../../util/hashCode';
 import createJoinRow from '../../util/joinRow';
 

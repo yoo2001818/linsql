@@ -1,12 +1,9 @@
 import { Expression } from 'yasqlp';
-import deepEqual from 'deep-equal';
 import { Row } from '../row';
 import RowIterator from './type';
 import Aggregate from '../aggregate/type';
 import AggregateTypes from '../aggregate';
-import compileExpression, { getCode, getAggrName }
-  from '../util/compileExpression';
-import drainIterator from '../util/drainIterator';
+import compileExpression, { getAggrName } from '../expression';
 import hashCode from '../util/hashCode';
 
 export default class GroupHashIterator implements RowIterator {

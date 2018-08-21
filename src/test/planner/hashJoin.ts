@@ -1,5 +1,5 @@
 import parse, { Statement, Expression } from 'yasqlp';
-import planHashJoin from '../hashJoinPlanner';
+import planHashJoin from '../../planner/hashJoin';
 
 function getWhere(code: string): Expression {
   let stmt = parse(code)[0];

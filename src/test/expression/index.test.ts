@@ -1,5 +1,5 @@
 import parse, { Statement, Expression } from 'yasqlp';
-import { getCode } from '../../util/compileExpression';
+import { getCode } from '../../expression';
 
 function getWhere(code: string): Expression {
   let stmt = parse(code)[0];

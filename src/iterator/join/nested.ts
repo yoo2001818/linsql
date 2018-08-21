@@ -2,7 +2,6 @@ import { Expression } from 'yasqlp';
 import { Row } from '../../row';
 import RowIterator from '../type';
 import FilterIterator from '../filter';
-import drainIterator from '../../util/drainIterator';
 import createJoinRow from '../../util/joinRow';
 
 export default class NestedJoinIterator implements RowIterator {

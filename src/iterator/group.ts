@@ -5,7 +5,7 @@ import RowIterator from './type';
 import Aggregate from '../aggregate/type';
 import AggregateTypes from '../aggregate';
 import compileExpression, { getCode, getAggrName }
-  from '../util/compileExpression';
+  from '../expression';
 
 export default class GroupIterator implements RowIterator {
   input: RowIterator;

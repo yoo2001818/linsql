@@ -1,7 +1,7 @@
 import { Expression, SelectColumn } from 'yasqlp';
 import { Row } from '../row';
 import RowIterator from './type';
-import compileExpression from '../util/compileExpression';
+import compileExpression from '../expression';
 
 export default class MapIterator implements RowIterator {
   input: RowIterator;

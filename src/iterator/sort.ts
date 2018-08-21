@@ -3,7 +3,7 @@ import { OrderByRef } from 'yasqlp';
 import { Row } from '../row';
 import RowIterator from './type';
 import drainIterator from '../util/drainIterator';
-import compileExpression from '../util/compileExpression';
+import compileExpression from '../expression';
 
 function compileSorter(tables: string[], order: OrderByRef[]) {
   // Compile each evaluators

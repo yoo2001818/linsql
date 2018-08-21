@@ -1,7 +1,7 @@
 import { Expression } from 'yasqlp';
 import { Row } from '../../row';
 import RowIterator from '../type';
-import compileExpression from '../../util/compileExpression';
+import compileExpression from '../../expression';
 import drainIterator from '../../util/drainIterator';
 import createJoinRow from '../../util/joinRow';
 
