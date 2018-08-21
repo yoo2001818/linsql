@@ -1,7 +1,7 @@
 import parse, { Expression, OrderByRef } from 'yasqlp';
 
 import InputIterator from '../../iterator/input';
-import GroupIterator from '../../iterator/group';
+import GroupHashIterator from '../../iterator/groupHash';
 import RowIterator from '../../iterator/type';
 
 import drainIterator from '../../util/drainIterator';
@@ -18,7 +18,7 @@ function getOrderBy(code: string): OrderByRef[] {
   throw new Error('Given statement is not select stement');
 }
 
-describe('GroupIterator', () => {
+describe('GroupHashIterator', () => {
   let iterInput: RowIterator;
   let iter: RowIterator;
   beforeEach(() => {
@@ -39,7 +39,7 @@ describe('GroupIterator', () => {
   });
   it('should run group by correctly', async () => {
     const aggrName = 'sum-row[\'table\'][\'amount\']';
-    iter = new GroupIterator(iterInput,
+    iter = new GroupHashIterator(iterInput,
       getColumns('SELECT table.userId;'),
       getColumns('SELECT SUM(table.amount);'),
     );
@@ -52,7 +52,7 @@ describe('GroupIterator', () => {
   });
   it('should run group by correctly (count)', async () => {
     const aggrName = 'count-row[\'table\'][\'amount\']';
-    iter = new GroupIterator(iterInput,
+    iter = new GroupHashIterator(iterInput,
       getColumns('SELECT table.userId;'),
       getColumns('SELECT COUNT(table.amount);'),
     );
@@ -65,7 +65,7 @@ describe('GroupIterator', () => {
   });
   it('should run group by correctly (min)', async () => {
     const aggrName = 'min-row[\'table\'][\'amount\']';
-    iter = new GroupIterator(iterInput,
+    iter = new GroupHashIterator(iterInput,
       getColumns('SELECT table.userId;'),
       getColumns('SELECT MIN(table.amount);'),
     );
@@ -78,7 +78,7 @@ describe('GroupIterator', () => {
   });
   it('should run group by correctly (max)', async () => {
     const aggrName = 'max-row[\'table\'][\'amount\']';
-    iter = new GroupIterator(iterInput,
+    iter = new GroupHashIterator(iterInput,
       getColumns('SELECT table.userId;'),
       getColumns('SELECT MAX(table.amount);'),
     );
@@ -91,7 +91,7 @@ describe('GroupIterator', () => {
   });
   it('should be rewindable', async () => {
     const aggrName = 'sum-row[\'table\'][\'amount\']';
-    iter = new GroupIterator(iterInput,
+    iter = new GroupHashIterator(iterInput,
       getColumns('SELECT table.userId;'),
       getColumns('SELECT SUM(table.amount);'),
     );
@@ -107,7 +107,7 @@ describe('GroupIterator', () => {
   it('should be rewindable with parent row', async () => {
     const aggrName = 'sum-(row[\'table\'][\'amount\']+' +
       'parent[\'parent\'][\'x\'])';
-    iter = new GroupIterator(iterInput,
+    iter = new GroupHashIterator(iterInput,
       getColumns('SELECT table.userId;'),
       getColumns('SELECT SUM(table.amount + parent.x);'),
     );
@@ -127,7 +127,7 @@ describe('GroupIterator', () => {
     ]);
   });
   it('should return order if specified', async () => {
-    iter = new GroupIterator(iterInput,
+    iter = new GroupHashIterator(iterInput,
       getColumns('SELECT table.userId;'),
       getColumns('SELECT SUM(table.amount);'),
     );
