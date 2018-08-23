@@ -39,9 +39,14 @@ export default function planMergeJoin(
 ) {
   let result = planBlock(expr, { left, right, leftOrder, rightOrder });
   // Find leftmost / rightmost available index of result
+  let end = 0;
+  while (end < result.length) {
+    if (result[end] === false) break;
+    end ++;
+  }
   return {
     start: 0,
-    end: result.findIndex(v => v === false),
+    end,
   };
 }
 
@@ -72,11 +77,19 @@ function planBlock(
       return [];
     }
     // Get index of corresponding value..
-    let leftIndex = input.leftOrder.findIndex(v => deepEqual(v, leftTableVal));
+    let leftIndex = input.leftOrder.findIndex(v =>
+      deepEqual(v.value, leftTableVal));
     let rightIndex = input.rightOrder.findIndex(v =>
-      deepEqual(v, rightTableVal));
+      deepEqual(v.value, rightTableVal));
     if (leftIndex === -1 || leftIndex !== rightIndex) {
       // Index order must match for left and right
+      return [];
+    }
+    // Both index's order must be same to utilize it.
+    if (
+      (input.leftOrder[leftIndex].direction === 'desc') !== 
+      (input.rightOrder[rightIndex].direction === 'desc')
+    ) {
       return [];
     }
     // Return an array with current index marked true
