@@ -10,15 +10,21 @@ export default class HashJoinIterator implements RowIterator {
   left: RowIterator;
   right: RowIterator;
   parentRow: Row;
+
   leftJoin: boolean;
+
   rightCache: Row[];
   rightFiller: { [key: string]: Row };
   tables: { [key: string]: number[] }[];
-  joinRow: ReturnType<typeof createJoinRow>;
+
   plan: HashJoinPlan;
   comparator: (input: Row, parentRow: Row) => any;
+
   tablePlans: { tableId: number, evaluate: (row: Row) => any }[];
   comparePlans: { tableId: number, evaluate: (row: Row) => any }[];
+
+  joinRow: ReturnType<typeof createJoinRow>;
+
   constructor(left: RowIterator, right: RowIterator, where: Expression,
     leftJoin: boolean = false,
   ) {

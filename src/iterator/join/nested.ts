@@ -8,13 +8,19 @@ export default class NestedJoinIterator implements RowIterator {
   left: RowIterator;
   right: RowIterator;
   parentRow: Row;
+
   leftJoin: boolean;
+
   rightFiller: { [key: string]: Row };
+
   joinRow: ReturnType<typeof createJoinRow>;
+
   leftBuffer: Row[] = null;
   leftPos: number = 0;
+
   rightOngoing: boolean = false;
   rightHit: boolean = false;
+
   constructor(left: RowIterator, right: RowIterator, where: Expression,
     leftJoin: boolean = false,
   ) {

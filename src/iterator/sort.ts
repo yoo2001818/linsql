@@ -3,28 +3,7 @@ import { OrderByRef } from 'yasqlp';
 import { Row } from '../row';
 import RowIterator from './type';
 import drainIterator from '../util/drainIterator';
-import compileExpression from '../expression';
-
-function compileSorter(tables: string[], order: OrderByRef[]) {
-  // Compile each evaluators
-  let directions = order.map(ref => ref.direction === 'desc');
-  let evaluators = order.map(ref => compileExpression(tables, ref.value));
-  return (parentRow: Row, a: Row, b: Row) => {
-    for (let i = 0; i < evaluators.length; ++i) {
-      let evaluator = evaluators[i];
-      let resultA = evaluator(a, parentRow);
-      let resultB = evaluator(b, parentRow);
-      if (directions[i]) {
-        if (resultA > resultB) return -1;
-        if (resultA < resultB) return 1;
-      } else {
-        if (resultA < resultB) return -1;
-        if (resultA > resultB) return 1;
-      }
-    }
-    return 0;
-  };
-}
+import compileSorter from '../expression/sorter';
 
 export default class SortIterator implements RowIterator {
   input: RowIterator;

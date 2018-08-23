@@ -9,12 +9,17 @@ export default class CrossJoinIterator implements RowIterator {
   left: RowIterator;
   right: RowIterator;
   parentRow: Row;
+
   rightCache: Row[];
-  where: Expression;
-  leftJoin: boolean;
   rightFiller: { [key: string]: Row };
+
+  where: Expression;
   comparator: (input: Row, parentRow: Row) => any;
+
+  leftJoin: boolean;
+
   joinRow: ReturnType<typeof createJoinRow>;
+
   constructor(left: RowIterator, right: RowIterator, where: Expression,
     leftJoin: boolean = false,
   ) {
