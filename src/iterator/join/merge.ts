@@ -20,6 +20,7 @@ export default class MergeJoinIterator implements RowIterator {
   rightCache: Row[] = null;
   rightPos: number;
   rightDone: boolean = false;
+  rightBuffer: Row[] = [];
 
   start: number;
   end: number;
@@ -92,20 +93,54 @@ export default class MergeJoinIterator implements RowIterator {
       while (this.leftPos < this.leftCache.length &&
         this.rightPos < this.rightCache.length
       ) {
-        let compared = this.sorter(this.parentRow,
-          this.leftCache[this.leftPos], this.rightCache[this.rightPos],
-        );
+        let leftRow = this.leftCache[this.leftPos];
+        let rightRow = this.rightCache[this.rightPos];
+        let compared = this.sorter(this.parentRow, leftRow, rightRow);
+        // If the relation is one-to-many, we just have to advance 'many'
+        // side, however, if the relation is many-to-many, we have to create
+        // lookbefore buffer in the memory.
+        // Since we don't know what data is 'one', we have to handle all
+        // cases of merge join.
+        //
+        // However, we assume one-to-many join by default, so it can work
+        // with only one buffer in that case, otherwise it'll use buffers
+        // intensively.
+        //
+        // The algorithm is the following:
+        // If both values are same:
+        //  - Push right value to the buffer.
+        //  - Put joined value into the output.
+        //  - Advance right.
+        // If left < right:
+        //  - If the buffer is not empty, create joined value and put into the
+        //    output.
+        //  - Advance left.
+        // If left > right:
+        //  - Clear the buffer.
+        //  - Advance right.
         if (compared === 0) {
-
-          this.leftPos ++;
+          let resultRow = this.joinRow(leftRow, rightRow);
+          if (this.comparator(resultRow, this.parentRow)) {
+            output.push(resultRow);
+          }
+          this.rightBuffer.push(rightRow);
           this.rightPos ++;
         } else if (compared > 0) {
           // left key > right key: fetch right
           // TODO right join
+          this.rightBuffer = [];
           this.rightPos ++;
         } else {
           // left key < right key: fetch left
           // TODO left join
+          if (this.rightBuffer.length > 0) {
+            this.rightBuffer.forEach(rightRow => {
+              let resultRow = this.joinRow(leftRow, rightRow);
+              if (this.comparator(resultRow, this.parentRow)) {
+                output.push(resultRow);
+              }
+            });
+          }
           this.leftPos ++;
         }
       }
@@ -152,6 +187,7 @@ export default class MergeJoinIterator implements RowIterator {
     this.rightCache = null;
     this.rightPos = 0;
     this.rightDone = false;
+    this.rightBuffer = [];
   }
   [Symbol.asyncIterator]() {
     return this;

@@ -76,6 +76,7 @@ function planBlock(
     } else {
       return [];
     }
+    if (input.leftOrder == null || input.rightOrder == null) return [];
     // Get index of corresponding value..
     let leftIndex = input.leftOrder.findIndex(v =>
       deepEqual(v.value, leftTableVal));
