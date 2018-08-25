@@ -27,12 +27,17 @@ describe('MergeJoinIterator', () => {
       { id: 2, name: 'Steve', age: 12 },
       { id: 3, name: 'David', age: 10 },
       { id: 4, name: 'Alex', age: 9 },
+      { id: 4, name: 'Alex 2', age: 9 },
+      { id: 5, name: 'Tom', age: 14 },
+      { id: 5, name: 'Tom 2', age: 14 },
     ], ['id']);
     iter2 = new InputIterator('accounts', [
       { id: 1, user_id: 1, name: '보통예금', amount: 12000 },
       { id: 3, user_id: 3, name: '정기적금', amount: 1000 },
-      { id: 4, user_id: 4, name: '현금', amount: 0 },
       { id: 5, user_id: 3, name: '잡손실', amount: 1000 },
+      { id: 4, user_id: 4, name: '현금', amount: 0 },
+      { id: 6, user_id: 5, name: '현금과부족', amount: 0 },
+      { id: 7, user_id: 5, name: '전기이월', amount: 0 },
     ], ['user_id']);
   });
   it('should return correct result', async () => {
@@ -50,6 +55,21 @@ describe('MergeJoinIterator', () => {
     }, {
       users: { id: 4, name: 'Alex', age: 9 },
       accounts: { id: 4, user_id: 4, name: '현금', amount: 0 },
+    }, {
+      users: { id: 4, name: 'Alex 2', age: 9 },
+      accounts: { id: 4, user_id: 4, name: '현금', amount: 0 },
+    }, {
+      users: { id: 5, name: 'Tom', age: 14 },
+      accounts: { id: 6, user_id: 5, name: '현금과부족', amount: 0 },
+    }, {
+      users: { id: 5, name: 'Tom', age: 14 },
+      accounts: { id: 7, user_id: 5, name: '전기이월', amount: 0 },
+    }, {
+      users: { id: 5, name: 'Tom 2', age: 14 },
+      accounts: { id: 6, user_id: 5, name: '현금과부족', amount: 0 },
+    }, {
+      users: { id: 5, name: 'Tom 2', age: 14 },
+      accounts: { id: 7, user_id: 5, name: '전기이월', amount: 0 },
     }]);
   });
   it('should handle left join', async () => {
@@ -69,6 +89,9 @@ describe('MergeJoinIterator', () => {
       accounts: { id: 5, user_id: 3, name: '잡손실', amount: 1000 },
     }, {
       users: { id: 4, name: 'Alex', age: 9 },
+      accounts: { id: 4, user_id: 4, name: '현금', amount: 0 },
+    }, {
+      users: { id: 4, name: 'Alex 2', age: 9 },
       accounts: { id: 4, user_id: 4, name: '현금', amount: 0 },
     }]);
   });

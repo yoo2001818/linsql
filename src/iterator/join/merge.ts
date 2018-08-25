@@ -21,6 +21,7 @@ export default class MergeJoinIterator implements RowIterator {
   rightPos: number;
   rightDone: boolean = false;
   rightBuffer: Row[] = [];
+  rightBufferIgnore: boolean = false;
 
   start: number;
   end: number;
@@ -110,30 +111,35 @@ export default class MergeJoinIterator implements RowIterator {
         // If both values are same:
         //  - Push right value to the buffer.
         //  - Put joined value into the output.
+        //  - Set buffer ignore to true.
         //  - Advance right.
         // If left < right:
-        //  - If the buffer is not empty, create joined value and put into the
+        //  - If the buffer is not empty, and  create joined value and put into the
         //    output.
+        //  - Set buffer ignore to false.
         //  - Advance left.
         // If left > right:
         //  - Clear the buffer.
+        //  - Set buffer ignore to false.
         //  - Advance right.
         if (compared === 0) {
           let resultRow = this.joinRow(leftRow, rightRow);
           if (this.comparator(resultRow, this.parentRow)) {
             output.push(resultRow);
           }
+          this.rightBufferIgnore = true;
           this.rightBuffer.push(rightRow);
           this.rightPos ++;
         } else if (compared > 0) {
           // left key > right key: fetch right
           // TODO right join
           this.rightBuffer = [];
+          this.rightBufferIgnore = false;
           this.rightPos ++;
         } else {
           // left key < right key: fetch left
           // TODO left join
-          if (this.rightBuffer.length > 0) {
+          if (this.rightBuffer.length > 0 && !this.rightBufferIgnore) {
             this.rightBuffer.forEach(rightRow => {
               let resultRow = this.joinRow(leftRow, rightRow);
               if (this.comparator(resultRow, this.parentRow)) {
@@ -141,6 +147,7 @@ export default class MergeJoinIterator implements RowIterator {
               }
             });
           }
+          this.rightBufferIgnore = false;
           this.leftPos ++;
         }
       }
@@ -153,7 +160,17 @@ export default class MergeJoinIterator implements RowIterator {
     } else if (!this.leftDone && this.rightDone) {
       if (!this.leftJoin) return { done: true, value: null };
       while (this.leftPos < this.leftCache.length) {
+        let leftRow = this.leftCache[this.leftPos];
         // TODO left join
+        if (this.rightBuffer.length > 0 && !this.rightBufferIgnore) {
+          this.rightBuffer.forEach(rightRow => {
+            let resultRow = this.joinRow(leftRow, rightRow);
+            if (this.comparator(resultRow, this.parentRow)) {
+              output.push(resultRow);
+            }
+          });
+        }
+        this.rightBufferIgnore = false;
         this.leftPos ++;
       }
     } else {
@@ -188,6 +205,7 @@ export default class MergeJoinIterator implements RowIterator {
     this.rightPos = 0;
     this.rightDone = false;
     this.rightBuffer = [];
+    this.rightBufferIgnore = false;
   }
   [Symbol.asyncIterator]() {
     return this;
