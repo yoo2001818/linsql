@@ -8,29 +8,36 @@ export default class LimitIterator implements RowIterator {
   end: number;
   constructor(input: RowIterator, limit: number, offset?: number) {
     this.input = input;
+    this.offset = 0;
     this.start = offset == null ? 0 : offset;
     this.end = this.start + limit;
   }
   async next(arg?: any): Promise<IteratorResult<Row[]>> {
     if (this.offset >= this.end) return { value: null, done: true };
-    // Call next until start is reached.
     let value;
+    // If start hasn't reached, we have to slice to the start.
     if (this.offset < this.start) {
+      // Call next until start is reached.
       let iterResult;
+      let offset = 0;
       do {
         iterResult = await this.input.next(arg);
         if (iterResult.done) return { value: null, done: true };
-      } while (this.offset + iterResult.value.length >= this.start);
+        offset += iterResult.value.length;
+      } while (offset <= this.start);
       this.offset = this.start;
-      value = iterResult.value.slice(this.start - this.offset);
+      value = iterResult.value.slice(this.start - offset);
     } else {
+      // Just call next.
       let iterResult = await this.input.next(arg);
       if (iterResult.done) return { value: null, done: true };
       value = iterResult.value;
     }
-    if (this.end - this.offset > value.length) {
+    // If end is reached, slice to the end.
+    if (this.end - this.offset < value.length) {
+      value = value.slice(0, this.end - this.offset);
       this.offset = this.end;
-      return { value: value.slice(0, this.end - this.offset), done: false };
+      return { value, done: false };
     } else {
       this.offset += value.length;
       return { value, done: false };
@@ -45,7 +52,7 @@ export default class LimitIterator implements RowIterator {
   getOrder() {
     return this.input.getOrder();
   }
-  rewind(parentRow: Row) {
+  rewind(parentRow?: Row) {
     this.offset = 0;
     return this.input.rewind(parentRow);
   }
