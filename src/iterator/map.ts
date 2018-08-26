@@ -33,9 +33,9 @@ export default class MapIterator implements RowIterator {
   getTables() {
     return [...this.input.getTables(), '__result'];
   }
-  getColumns() {
+  async getColumns() {
     return {
-      ...this.input.getColumns(),
+      ...await this.input.getColumns(),
       __result: this.columns.map(v => v.name),
     };
   }
