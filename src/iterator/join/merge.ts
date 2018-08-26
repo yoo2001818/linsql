@@ -68,7 +68,7 @@ export default class MergeJoinIterator implements RowIterator {
   }
   async next(arg?: any): Promise<IteratorResult<Row[]>> {
     // Fetch cache if one of them has run out.
-    if (this.leftCache == null || this.leftPos <= this.leftCache.length) {
+    if (this.leftCache == null || this.leftPos >= this.leftCache.length) {
       let { value, done } = await this.left.next(arg);
       if (done) {
         this.leftCache = null;
@@ -78,7 +78,7 @@ export default class MergeJoinIterator implements RowIterator {
         this.leftPos = 0;
       }
     }
-    if (this.rightCache == null || this.rightPos <= this.rightCache.length) {
+    if (this.rightCache == null || this.rightPos >= this.rightCache.length) {
       let { value, done } = await this.right.next(arg);
       if (done) {
         this.rightCache = null;
@@ -106,7 +106,7 @@ export default class MergeJoinIterator implements RowIterator {
         // However, we assume one-to-many join by default, so it can work
         // with only one buffer in that case, otherwise it'll use buffers
         // intensively.
-        //
+        // 
         // The algorithm is the following:
         // If both values are same:
         //  - Push right value to the buffer.
@@ -114,11 +114,15 @@ export default class MergeJoinIterator implements RowIterator {
         //  - Set buffer ignore to true.
         //  - Advance right.
         // If left < right:
-        //  - If the buffer is not empty, and  create joined value and put into the
-        //    output.
+        //  - If the buffer is empty, add left join empty pair.
+        //  - If the buffer is not empty, and buffer ignore is false,
+        //    - Check if the buffer's value is smaller than the right row.
+        //    - If it equals, create joined value and put into the output.
+        //    - If it's smaller, clear the buffer.
         //  - Set buffer ignore to false.
         //  - Advance left.
         // If left > right:
+        //  - Add right join empty pair.
         //  - Clear the buffer.
         //  - Set buffer ignore to false.
         //  - Advance right.
@@ -127,25 +131,38 @@ export default class MergeJoinIterator implements RowIterator {
           if (this.comparator(resultRow, this.parentRow)) {
             output.push(resultRow);
           }
+          if (!this.rightBufferIgnore) this.rightBuffer = [];
           this.rightBufferIgnore = true;
           this.rightBuffer.push(rightRow);
           this.rightPos ++;
         } else if (compared > 0) {
           // left key > right key: fetch right
-          // TODO right join
+          output.push(this.joinRow(this.leftFiller, rightRow));
           this.rightBuffer = [];
           this.rightBufferIgnore = false;
           this.rightPos ++;
         } else {
           // left key < right key: fetch left
-          // TODO left join
           if (this.rightBuffer.length > 0 && !this.rightBufferIgnore) {
-            this.rightBuffer.forEach(rightRow => {
-              let resultRow = this.joinRow(leftRow, rightRow);
-              if (this.comparator(resultRow, this.parentRow)) {
-                output.push(resultRow);
-              }
-            });
+            // Compare the first value of buffer.
+            let compared = this.sorter(this.parentRow,
+              leftRow, this.rightBuffer[0]);
+            // If buffer's first value is different from left value, 
+            // clear the buffer.
+            if (compared === 0) {
+              this.rightBuffer.forEach(rightRow => {
+                let resultRow = this.joinRow(leftRow, rightRow);
+                if (this.comparator(resultRow, this.parentRow)) {
+                  output.push(resultRow);
+                }
+              });
+            } else {
+              this.rightBuffer = [];
+            }
+          }
+          if (this.rightBuffer.length === 0 && this.leftJoin) {
+            // Handle left join.
+            output.push(this.joinRow(leftRow, this.rightFiller));
           }
           this.rightBufferIgnore = false;
           this.leftPos ++;
@@ -154,21 +171,39 @@ export default class MergeJoinIterator implements RowIterator {
     } else if (this.leftDone && !this.rightDone) {
       if (!this.rightJoin) return { done: true, value: null };
       while (this.rightPos < this.rightCache.length) {
-        // TODO right join
+        // Handle right join
+        let rightRow = this.rightCache[this.rightPos];
+        output.push(this.joinRow(this.leftFiller, rightRow));
         this.rightPos ++;
       }
     } else if (!this.leftDone && this.rightDone) {
-      if (!this.leftJoin) return { done: true, value: null };
+      if (!this.leftJoin &&
+        !(this.rightBuffer.length > 0 || this.rightBufferIgnore)
+      ) {
+        return { done: true, value: null };
+      }
       while (this.leftPos < this.leftCache.length) {
         let leftRow = this.leftCache[this.leftPos];
-        // TODO left join
         if (this.rightBuffer.length > 0 && !this.rightBufferIgnore) {
-          this.rightBuffer.forEach(rightRow => {
-            let resultRow = this.joinRow(leftRow, rightRow);
-            if (this.comparator(resultRow, this.parentRow)) {
-              output.push(resultRow);
-            }
-          });
+          // Compare the first value of buffer.
+          let compared = this.sorter(this.parentRow,
+            leftRow, this.rightBuffer[0]);
+          // If buffer's first value is different from left value, 
+          // clear the buffer.
+          if (compared === 0) {
+            this.rightBuffer.forEach(rightRow => {
+              let resultRow = this.joinRow(leftRow, rightRow);
+              if (this.comparator(resultRow, this.parentRow)) {
+                output.push(resultRow);
+              }
+            });
+          } else {
+            this.rightBuffer = [];
+          }
+        }
+        if (this.rightBuffer.length === 0 && this.leftJoin) {
+          // Handle left join.
+          output.push(this.joinRow(leftRow, this.rightFiller));
         }
         this.rightBufferIgnore = false;
         this.leftPos ++;
