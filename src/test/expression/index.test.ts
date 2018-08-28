@@ -49,12 +49,6 @@ describe('compileExpression', () => {
     expect(getCode(env, getWhere(`SELECT 1 WHERE 'Hello, ''this''';`)))
       .toBe('return \'Hello, \\\'this\\\'\';');
   });
-  it('should compile aggregations', () => {
-    expect(getCode(env, getWhere(`SELECT 1 WHERE COUNT(*);`)))
-      .toBe('return row._aggr[\'count-\\\'*\\\'\'];');
-    expect(getCode(env, getWhere(`SELECT 1 WHERE COUNT(abc);`)))
-      .toBe('return row._aggr[\'count-row._output[\\\'abc\\\']\'];');
-  });
   it('should compile functions', () => {
     expect(getCode(env, getWhere(`SELECT 1 WHERE ATAN2(-15, -5);`)))
       .toBe('return methods[\'atan2\'](-15, -5);');

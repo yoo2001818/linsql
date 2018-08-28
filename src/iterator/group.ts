@@ -11,7 +11,7 @@ export default class GroupIterator implements RowIterator {
   input: RowIterator;
   groupTargets: ((input: Row, parentRow: Row) => any)[];
   aggregates: {
-    name: string,
+    name: number,
     distinct: boolean,
     data: Aggregate,
     evaluate: ((input: Row, parentRow: Row) => any),
@@ -25,7 +25,7 @@ export default class GroupIterator implements RowIterator {
   ) {
     this.input = input;
     this.groupTargets = group.map(v => compileExpression(input.getTables(), v));
-    this.aggregates = aggregates.map(aggr => {
+    this.aggregates = aggregates.map((aggr, i) => {
       if (aggr.type !== 'aggregation') {
         throw new Error('Aggregate expression type must be aggregation');
       }
@@ -34,7 +34,7 @@ export default class GroupIterator implements RowIterator {
         throw new Error('Unknown aggregation ' + aggr.name);
       }
       return {
-        name: getAggrName({ tables: input.getTables() }, aggr),
+        name: i,
         distinct: aggr.qualifier === 'distinct',
         data: aggrCreator(),
         evaluate: compileExpression(input.getTables(), aggr.value),

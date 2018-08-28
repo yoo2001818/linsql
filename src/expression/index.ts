@@ -82,8 +82,6 @@ const MAP_TABLE: {
     return accessor + '(' + expr.args.map(arg =>
       map(input, arg)).join(', ') + ')';
   },
-  aggregation: (input, expr: AggregateExpression) =>
-    `row._aggr['${escape(getAggrName(input, expr))}']`,
   case: (input, expr: CaseExpression) => {
     // Create IIFE for the statement
     let code = '(function () {\n';
@@ -104,8 +102,12 @@ const MAP_TABLE: {
     code += '})()';
     return code;
   },
+  // TODO Throw error
+  aggregation: () => '',
+  // TODO Throw error
   exists: () => '',
-  // TODO Escape string
+  // TODO Throw error
+  select: () => '',
   string: (_, expr: StringValue) => `'${escape(expr.value)}'`,
   number: (_, expr: NumberValue) => expr.value.toString(),
   boolean: (_, expr: BooleanValue) => expr.value === true ? 'true' : 'false',
