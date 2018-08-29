@@ -72,7 +72,7 @@ declare module 'yasqlp' {
   };
   export type Expression = PrimaryExpression | BinaryExpression | InExpression |
     BetweenExpression | CompareExpression | UnaryExpression |
-    LogicalExpression | ExistsExpression;
+    LogicalExpression | ExistsExpression | SelectStatement;
   export type SelectColumn = {
     qualifier?: null | 'distinct' | 'all',
     name?: null | string,

@@ -101,6 +101,8 @@ results.
    - Get optimal join method for each table
    - Get optimal access method for each table
      - For some cases, postponing filter may be better
+     - For subquery tables, run query planner recursively
 6. Get optimal join path
    - Find out which table is best for starting fetching data
 7. Construct physical, i.e. 'actual' iterators
+8. If union is used, recursively call planner and merge all of them
