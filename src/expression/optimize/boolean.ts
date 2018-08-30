@@ -131,3 +131,74 @@ export function rewriteBetween(expr: Expression) {
     };
   });
 }
+
+/**
+ * Moves NOT to bottom of the tree to simplify the logical operators.
+ * @param expr The expression to rewrite NOT.
+ */
+const LOGICAL_INVERSES = { '&&': '||' as '||', '||': '&&' as '&&' };
+const COMPARE_INVERSES = {
+  '=': '!=' as '!=',
+  '!=': '=' as '=',
+  '>=': '<' as '<',
+  '<=': '>' as '>',
+  '>': '<=' as '<=',
+  '<': '>=' as '>=',
+  'is': false as false,
+  'like': false as false,
+};
+
+export function rewriteNot(expr: Expression) {
+  rewrite(expr, { inversed: false, bottom: false }, (expr, state) => {
+    if (state.bottom) {
+      return { expr, state: { inversed: false, bottom: false } };
+    }
+    if (expr.type === 'unary' && expr.op === '!') {
+      return {
+        expr: expr.value,
+        state: { inversed: !state.inversed, bottom: false },
+      };
+    }
+    if (state.inversed) {
+      switch (expr.type) {
+        case 'logical': {
+          return { expr: { ...expr, op: LOGICAL_INVERSES[expr.op] }, state };
+        }
+        case 'compare': {
+          let newOp = COMPARE_INVERSES[expr.op];
+          if (newOp === false) {
+            return {
+              expr: { type: 'unary', op: '!', value: expr },
+              state: { inversed: false, bottom: true },
+            };
+          } else {
+            return {
+              expr: { ...expr, op: newOp },
+              state: { inversed: false, bottom: true },
+            };
+          }
+        }
+        case 'boolean': {
+          return {
+            expr: { ...expr, value: !expr.value },
+            state: { inversed: false, bottom: true },
+          };
+        }
+        case 'number': {
+          return {
+            expr: { type: 'boolean', value: !expr.value },
+            state: { inversed: false, bottom: true },
+          };
+        }
+        default: {
+          return {
+            expr: { type: 'unary', op: '!', value: expr },
+            state: { inversed: false, bottom: true },
+          };
+        }
+      }
+    } else {
+      return { expr, state };
+    }
+  });
+}
