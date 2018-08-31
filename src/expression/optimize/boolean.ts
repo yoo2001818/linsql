@@ -105,30 +105,53 @@ export function rewrite<T>(
 }
 
 /**
- * Rewrites between expression to two comparsion operators. 
- * @param expr The expression to remove between..
+ * Rewrites between expression to two comparsion operators, and in expression
+ * to many comparsion operators. 
+ * @param expr The expression to remove between and in.
  */
-export function rewriteBetween(expr: Expression) {
-  rewrite(expr, {}, (expr, state) => {
-    if (expr.type !== 'between') return { expr, state };
-    return {
-      expr: {
-        type: 'logical',
-        op: '&&',
-        values: [{
-          type: 'compare',
-          op: '<=',
-          left: expr.min,
-          right: expr.target,
-        }, {
-          type: 'compare',
-          op: '<=',
-          left: expr.target,
-          right: expr.max,
-        }],
-      },
-      state,
-    };
+export function rewriteBetweenIn(expr: Expression) {
+  return rewrite(expr, {}, (expr, state) => {
+    switch (expr.type) {
+      case 'between': {
+        return {
+          expr: {
+            type: 'logical',
+            op: '&&',
+            values: [{
+              type: 'compare',
+              op: '<=',
+              left: expr.min,
+              right: expr.target,
+            }, {
+              type: 'compare',
+              op: '<=',
+              left: expr.target,
+              right: expr.max,
+            }],
+          },
+          state,
+        };
+      }
+      case 'in': {
+        if (expr.values.type === 'select') return { expr, state };
+        return {
+          expr: {
+            type: 'logical',
+            op: '||', 
+            values: expr.values.values.map(v => ({
+              type: 'compare',
+              op: '=',
+              left: expr.target,  
+              right: v,
+            })) as Expression[],
+          },
+          state,
+        };
+      }
+      default: {
+        return { expr, state };
+      }
+    }
   });
 }
 
@@ -148,57 +171,61 @@ const COMPARE_INVERSES = {
   'like': false as false,
 };
 
-export function rewriteNot(expr: Expression) {
-  rewrite(expr, { inversed: false, bottom: false }, (expr, state) => {
-    if (state.bottom) {
-      return { expr, state: { inversed: false, bottom: false } };
-    }
-    if (expr.type === 'unary' && expr.op === '!') {
-      return {
-        expr: expr.value,
-        state: { inversed: !state.inversed, bottom: false },
-      };
-    }
-    if (state.inversed) {
-      switch (expr.type) {
-        case 'logical': {
-          return { expr: { ...expr, op: LOGICAL_INVERSES[expr.op] }, state };
-        }
-        case 'compare': {
-          let newOp = COMPARE_INVERSES[expr.op];
-          if (newOp === false) {
-            return {
-              expr: { type: 'unary', op: '!', value: expr },
-              state: { inversed: false, bottom: true },
-            };
-          } else {
-            return {
-              expr: { ...expr, op: newOp },
-              state: { inversed: false, bottom: true },
-            };
-          }
-        }
-        case 'boolean': {
-          return {
-            expr: { ...expr, value: !expr.value },
-            state: { inversed: false, bottom: true },
-          };
-        }
-        case 'number': {
-          return {
-            expr: { type: 'boolean', value: !expr.value },
-            state: { inversed: false, bottom: true },
-          };
-        }
-        default: {
+type RewriteNotState = { inversed: boolean, bottom: boolean };
+
+function mapRewriteNot(
+  expr: Expression, state: RewriteNotState,
+): { expr: Expression, state: RewriteNotState } {
+  if (state.bottom) {
+    return { expr, state: { inversed: false, bottom: false } };
+  }
+  if (expr.type === 'unary' && expr.op === '!') {
+    return mapRewriteNot(
+      expr.value, { inversed: !state.inversed, bottom: false });
+  }
+  if (state.inversed) {
+    switch (expr.type) {
+      case 'logical': {
+        return { expr: { ...expr, op: LOGICAL_INVERSES[expr.op] }, state };
+      }
+      case 'compare': {
+        let newOp = COMPARE_INVERSES[expr.op];
+        if (newOp === false) {
           return {
             expr: { type: 'unary', op: '!', value: expr },
             state: { inversed: false, bottom: true },
           };
+        } else {
+          return {
+            expr: { ...expr, op: newOp },
+            state: { inversed: false, bottom: true },
+          };
         }
       }
-    } else {
-      return { expr, state };
+      case 'boolean': {
+        return {
+          expr: { ...expr, value: !expr.value },
+          state: { inversed: false, bottom: true },
+        };
+      }
+      case 'number': {
+        return {
+          expr: { type: 'boolean', value: !expr.value },
+          state: { inversed: false, bottom: true },
+        };
+      }
+      default: {
+        return {
+          expr: { type: 'unary', op: '!', value: expr },
+          state: { inversed: false, bottom: true },
+        };
+      }
     }
-  });
+  } else {
+    return { expr, state };
+  }
+}
+
+export function rewriteNot(expr: Expression) {
+  return rewrite(expr, { inversed: false, bottom: false }, mapRewriteNot);
 }
