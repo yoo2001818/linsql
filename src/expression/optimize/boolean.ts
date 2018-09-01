@@ -176,12 +176,12 @@ type RewriteNotState = { inversed: boolean, bottom: boolean };
 function mapRewriteNot(
   expr: Expression, state: RewriteNotState,
 ): { expr: Expression, state: RewriteNotState } {
-  if (state.bottom) {
-    return { expr, state: { inversed: false, bottom: false } };
-  }
   if (expr.type === 'unary' && expr.op === '!') {
     return mapRewriteNot(
       expr.value, { inversed: !state.inversed, bottom: false });
+  }
+  if (state.bottom) {
+    return { expr, state: { inversed: false, bottom: false } };
   }
   if (state.inversed) {
     switch (expr.type) {

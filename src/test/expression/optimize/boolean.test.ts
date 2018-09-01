@@ -1,6 +1,6 @@
 import parse, { Expression } from 'yasqlp';
 
-import { rewriteNot } from '../../../expression/optimize/boolean';
+import { rewriteNot, rewriteBetweenIn } from '../../../expression/optimize/boolean';
 
 function getWhere(code: string): Expression {
   let stmt = parse(code)[0];
@@ -34,5 +34,22 @@ describe('rewriteNot', () => {
       .toEqual(getWhere('SELECT 1 WHERE a != 1 AND a NOT IN (1, 2);'));
     expect(rewriteNot(getWhere('SELECT 1 WHERE NOT(a = 1 OR MIN(a));')))
       .toEqual(getWhere('SELECT 1 WHERE a != 1 AND NOT MIN(a);'));
+  });
+  it('should treat nested expressions independently', () => {
+    expect(rewriteNot(getWhere('SELECT 1 WHERE NOT((a = 1) = TRUE);')))
+      .toEqual(getWhere('SELECT 1 WHERE (a = 1) != TRUE;'));
+    expect(rewriteNot(getWhere('SELECT 1 WHERE NOT((NOT(a != TRUE)) = TRUE);')))
+      .toEqual(getWhere('SELECT 1 WHERE (a = TRUE) != TRUE;'));
+  });
+});
+
+describe('rewriteBetweenIn', () => {
+  it('should run correctly', () => {
+    expect(rewriteBetweenIn(getWhere('SELECT 1 WHERE a BETWEEN 1 AND 3;')))
+      .toEqual(getWhere('SELECT 1 WHERE 1 <= a AND a <= 3;'));
+    expect(rewriteBetweenIn(getWhere('SELECT 1 WHERE a IN (1, 3);')))
+      .toEqual(getWhere('SELECT 1 WHERE a = 1 OR a = 3;'));
+    expect(rewriteBetweenIn(getWhere('SELECT 1 WHERE a IN (SELECT 3);')))
+      .toEqual(getWhere('SELECT 1 WHERE a IN (SELECT 3);'));
   });
 });
