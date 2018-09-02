@@ -106,3 +106,60 @@ results.
    - Find out which table is best for starting fetching data
 7. Construct physical, i.e. 'actual' iterators
 8. If union is used, recursively call planner and merge all of them
+
+### Pre-process Optimization
+1. Convert IN / BETWEEN into separate predicates.
+   - `A BETWEEN 1 AND 2` to `1 <= A AND A <= 2`
+2. Move NOT to inside logical operators using De Morgan's laws, and inverse 
+   compare expression's operators to eliminate NOT.
+   - `NOT(A = 1)` to `A != 1`
+   - `NOT(A >= 1 AND A <= 1)` to `A < 1 OR A > 1`
+3. Evaluate constant expressions if possible.
+   - `'a' = 'a'` to `TRUE`
+   - `A = B + 5 + 3` to `A = B + 8`
+   - `-A > 5` to `A < -5`
+   - `A * -2 = 10` to `A = -5`
+
+### Getting predicate graph
+For further optimizations, we need to render a graph with columns and
+predicates, so we can exploit transitivity and implement short circuit
+elimination.
+
+#### Predicate graph generation
+Each column has a list of predicate with constant values, and connections to
+other columns. Each connection, or predicates are represented with target value,
+and operator. Basically it's same as compare operator, but without left value.
+
+Constants are represented as OR, so range lookup, and IN expression both can be
+represented inside it.
+
+However, this design is only elligible for AND. For queries like
+`a.a = b.a OR a.a = c.a`, we need to separate query path and run union,
+or run full scan. For this case, it should be generated last so descendant can
+use parent's predicates data.
+
+However, if only single column is involved in OR, such as `a.a = 1 OR a.a = 2`,
+can be handled inside this design.
+
+Following code represents `a.id = b.id AND a.id >= 3 AND b.id <= 3`, which can
+be converted into `a.id = b.id AND a.id = 3 AND b.id = 3`.
+
+```js
+[{
+  name: { type: 'column', table: 'a', name: 'id' },
+  constants: [
+    { op: '>=', value: { type: 'number', value: 3 } },
+  ],
+  connections: [
+    { op: '=', value: 1 },
+  ],
+}, {
+  name: { type: 'column', table: 'b', name: 'id' },
+  constants: [
+    { op: '<=', value: { type: 'number', value: 3 } },
+  ],
+  connections: [
+    { op: '=', value: 0 },
+  ],
+}]
+```
