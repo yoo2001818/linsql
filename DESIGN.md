@@ -139,27 +139,47 @@ or run full scan. For this case, it should be generated last so descendant can
 use parent's predicates data.
 
 However, if only single column is involved in OR, such as `a.a = 1 OR a.a = 2`,
-can be handled inside this design.
+can be handled inside this design. (However, all predicates in OR expression
+must point to single column, and constant values. Otherwise, it'd be better to
+treat OR value as a subquery.)
 
-Following code represents `a.id = b.id AND a.id >= 3 AND b.id <= 3`, which can
-be converted into `a.id = b.id AND a.id = 3 AND b.id = 3`.
+It'd be better idea to treat equality group as a cluster, so equality group can
+be represented in O(N+M) space, not O(N^2) space. Other compare operators
+compare with each equality group then.
+
+Take this for example: `a.id = b.id AND a.id >= 3 AND b.id <= 3`
 
 ```js
 [{
-  name: { type: 'column', table: 'a', name: 'id' },
+  names: [
+    { type: 'column', table: 'a', name: 'id' },
+    { type: 'column', table: 'b', name: 'id' },
+  ],
   constants: [
     { op: '>=', value: { type: 'number', value: 3 } },
-  ],
-  connections: [
-    { op: '=', value: 1 },
-  ],
-}, {
-  name: { type: 'column', table: 'b', name: 'id' },
-  constants: [
     { op: '<=', value: { type: 'number', value: 3 } },
   ],
-  connections: [
-    { op: '=', value: 0 },
-  ],
+  connections: [],
 }]
 ```
+
+We derived `a.id = b.id AND a.id = 3 AND b.id = 3` with no much effort.
+
+Some extreme cases like `a.id = b.id AND b.id = c.id AND c.id = d.id AND ...`
+can be also expressed without fully connecting all the graphs.
+
+##### Handling OR and unsupported expressions
+Above method should be adequate for AND expressions - but how about ORs and
+unsupported expressions, like LIKE or binary functions, etc?
+
+Inside AND, treat unsupported objects as leftovers, so they're handled last.
+This should be enough for expressions like `someUDF() AND a.b = 1`, since
+required rows can be retrieved by `a.b = 1`, it can be filtered using
+`someUDF()` after retrieving them.
+
+However, OR is quite difficult to handle since only one predicate of the
+expression has to be satisifed to retrieve the row. -
+This means that all the predicates have to be retrieved and merged to treat
+them.
+
+We have to actually load them separately.
