@@ -168,6 +168,9 @@ We derived `a.id = b.id AND a.id = 3 AND b.id = 3` with no much effort.
 Some extreme cases like `a.id = b.id AND b.id = c.id AND c.id = d.id AND ...`
 can be also expressed without fully connecting all the graphs.
 
+MySQL expresses this within normal AST like `=(a.id, b.id) AND a.id = 3`,
+however, I'm not sure which one is better.
+
 ##### Handling OR and unsupported expressions
 Above method should be adequate for AND expressions - but how about ORs and
 unsupported expressions, like LIKE or binary functions, etc?
@@ -182,4 +185,18 @@ expression has to be satisifed to retrieve the row. -
 This means that all the predicates have to be retrieved and merged to treat
 them.
 
-We have to actually load them separately.
+The only exemption is single column values - they can be read by single index
+lookup, albeit it can be thought as being retrieved separately and merged.
+
+If OR is inside AND, OR's children can utilize these information inside them,
+effectively making them possible to be candidate for lookup.
+
+For example, in case of `a.id = b.id AND (a.id = 3 OR b.id = 4)`, `a.id = 3`
+is derived to be `b.id = 3` since parent indicates that `a.id = b.id`.
+
+Or, otherwise, we can expand OR into:
+`a.id = b.id AND ((a.id = b.id AND a.id = 3) OR (a.id = b.id AND b.id = 4))`,
+effectively making them legible for index lookups.
+
+Therefore, we should try to inherit from parent equality group if it's possible
+to do so.
