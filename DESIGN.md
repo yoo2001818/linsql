@@ -168,9 +168,6 @@ We derived `a.id = b.id AND a.id = 3 AND b.id = 3` with no much effort.
 Some extreme cases like `a.id = b.id AND b.id = c.id AND c.id = d.id AND ...`
 can be also expressed without fully connecting all the graphs.
 
-MySQL expresses this within normal AST like `=(a.id, b.id) AND a.id = 3`,
-however, I'm not sure which one is better.
-
 ##### Handling OR and unsupported expressions
 Above method should be adequate for AND expressions - but how about ORs and
 unsupported expressions, like LIKE or binary functions, etc?
@@ -200,3 +197,48 @@ effectively making them legible for index lookups.
 
 Therefore, we should try to inherit from parent equality group if it's possible
 to do so.
+
+##### Expressing expression
+To express complex expressions, graphs are not enough. Graphs only work when
+they're composed of AND and compare expressions - we need another way.
+
+MySQL expresses this within normal AST like `=(a.id, b.id) AND a.id = 3`,
+however, while it's possible to express graphs like that, it's not able to
+eliminate unnecessary predicates like `a.id > 3 AND a.id < 1`.
+
+It might be possible to express them using special case of ANDs - which can be
+converted to native expression and vice versa. It should be able to be
+converted back because expression evaluator doesn't know how to handle them,
+and they shouldn't be.
+
+If we add new type of expression, named `andGraph`, we can express the
+AND graphs like this:
+
+```js
+{
+  type: 'andGraph',
+  nodes: [{
+    names: [
+      { type: 'column', table: 'a', name: 'id' },
+      { type: 'column', table: 'b', name: 'id' },
+    ],
+    constants: [
+      { op: '>=', value: { type: 'number', value: 3 } },
+      { op: '<=', value: { type: 'number', value: 3 } },
+    ],
+    connections: [],
+  }],
+  leftovers: [{
+    type: 'boolean',
+    value: true,
+  }, {
+    type: 'logical',
+    op: 'or',
+    // ...
+  }],
+}
+```
+
+inherited OR values should be able to extend parent's AND graph. This can be
+done by completely copying the parent value, or just by reserving parent's
+nodes ID.
