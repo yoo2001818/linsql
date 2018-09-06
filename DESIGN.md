@@ -242,3 +242,48 @@ AND graphs like this:
 inherited OR values should be able to extend parent's AND graph. This can be
 done by completely copying the parent value, or just by reserving parent's
 nodes ID.
+
+### Converting aggregation / subquerys to table lookups
+Expression evaluation mechanism cannot execute aggregation / subquery by itself.
+To implement them, we must replace them into regular column lookups, Then inject
+the tables before evaluating.
+
+So, aggregation / subquery processor should convert expression to exclude them,
+and output required aggregations and subquerys.
+
+`a.c > 5 AND MIN(b.d) AND (SELECT 1)` should be converted to
+`a.c > 5 AND _aggr1.value AND _subquery1.value`, along with a task list like
+this:
+
+```js
+[
+  {
+    type: 'aggregation',
+    id: 1,
+    table: 'b',
+    op: 'min',
+    value: { type: 'column', table: 'b', column: 'd' },
+  },
+  {
+    type: 'subquery',
+    id; 1,
+    value: {
+      type: 'select',
+      columns: [], // skipped
+      // ...
+    },
+  },
+]
+```
+
+This should be enough to express prerequisties. Optimization should be done
+later.
+
+### Optimizing aggregation and subquerys
+Converted result is not really pleasing; we need to optimize aggregations
+and subquerys. Aggregation is not really optimizable, however, it's still
+required to mark the table as 'group by 1' or something to perform aggregation.
+
+Subquerys, however, has a lot of potential for optimization. We can perform
+materialization, converision to join, or just eliminate them.
+
