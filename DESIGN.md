@@ -287,3 +287,27 @@ required to mark the table as 'group by 1' or something to perform aggregation.
 Subquerys, however, has a lot of potential for optimization. We can perform
 materialization, converision to join, or just eliminate them.
 
+#### Materialization of subquery
+Is the subquery independent from the rest of the queries? If so, we can just
+materialize the table and use it from the cache.
+
+To get dependency, iterate through subquery AST and find any table from parent
+query. If nothing is found, add materialization.
+
+However, if subquery's result is being joined to other table, it may be
+beneficial to forcefully insert 'order by' into the subquery, to allow lookups.
+
+#### Optimizing exists / single column query
+Single column query / exists may be converted to joins. Especially exists -
+it just has to be converted to JOIN with LIMIT 1.
+Single column query can also be converted to joins.
+
+#### Aggregation after join / before join
+
+### Calculate join dependency graph
+
+### Calculate cost between tables
+
+### Getting optimal join path
+
+### Constructing physical iterators
