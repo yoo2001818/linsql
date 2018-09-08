@@ -302,9 +302,20 @@ Single column query / exists may be converted to joins. Especially exists -
 it just has to be converted to JOIN with LIMIT 1.
 Single column query can also be converted to joins.
 
-#### Aggregation after join / before join
-
 ### Calculate join dependency graph
+After optimization, we can finally generate join dependency graph.
+
+Join dependency graph should be able to represent:
+- Predicates between two tables (edge)
+- Predicate to retrieve the table (node)
+
+To do that, we'll have to traverse all WHERE clauses and constructing the graph.
+
+TODO: How do we handle OR?
+
+### Calculate cost of table retrieval
+We finally know how to fetch individual table at this stage. Use indices / or
+just scan the whole table.
 
 ### Calculate cost between tables
 
