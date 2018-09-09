@@ -314,11 +314,35 @@ To do that, we'll have to traverse all WHERE clauses and constructing the graph.
 TODO: How do we handle OR?
 
 ### Calculate cost of table retrieval
-We finally know how to fetch individual table at this stage. Use indices / or
-just scan the whole table.
+We finally know how to fetch individual table at this stage. Use indexes / or
+just scan the whole table. However, linsql doesn't provideany indexes, it'd
+always be full table scan, so basically all table's retriveval cost will be
+same - O(n).
 
 ### Calculate cost between tables
+Judguing by table's predicates and sorted state, we can perform either
+merge join or hash join. Nested join and cross join should be avoided if
+possible since linsql lacks indexes.
+
+Hash join can be performed if all predicates use '='.
+Merge join can be performed if all predicates use '=', and both tables are
+sorted in right order.
+
+If none are possible, we should resort to cross join. This shouldn't really
+happen since only one '=' is required to perform hash or merge join - other
+predicates can be checked later.
+
+If left / right join is specified, the join can be 'one-way' - the other way
+around is prohibitively expensive. This applies for hash join.
 
 ### Getting optimal join path
+After costs are estimated, choose the best table join path. This might be done
+by constructing minimum spanning tree, and choosing best starting table (which
+has minimum cost of starting).
+
+However, since linsql lacks indexes, full table retrieval is always performed.
+So just picking any table would be fine though.
 
 ### Constructing physical iterators
+After generating join path and table retrieval information, we can finally
+construct physical iterators and start retrieving data.
