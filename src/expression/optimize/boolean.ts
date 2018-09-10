@@ -159,8 +159,11 @@ export function rewriteBetweenIn(expr: Expression) {
  * Moves NOT to bottom of the tree to simplify the logical operators.
  * @param expr The expression to rewrite NOT.
  */
-const LOGICAL_INVERSES = { '&&': '||' as '||', '||': '&&' as '&&' };
-const COMPARE_INVERSES = {
+const LOGICAL_INVERSES: { [key: string]: '||' | '&&' } = {
+  '&&': '||' as '||',
+  '||': '&&' as '&&',
+};
+const COMPARE_INVERSES: { [key: string]: string | false } = {
   '=': '!=' as '!=',
   '!=': '=' as '=',
   '>=': '<' as '<',
