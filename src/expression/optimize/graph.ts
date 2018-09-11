@@ -1,22 +1,41 @@
 import { Expression, CompareExpression } from 'yasqlp';
 
+import { rewrite } from '../traverse';
+
 type AndGraphNode = {
-  names: ExpressionWithGraph[],
+  names: Expression[],
   connections: {
     op: CompareExpression['op'],
-    value: ExpressionWithGraph,
+    value: Expression,
   }[],
 };
 
 export type AndGraphExpression = {
-  type: 'andGraph',
+  type: 'custom',
+  customType: 'andGraph',
   nodes: AndGraphNode[],
-  leftovers: ExpressionWithGraph[],
+  leftovers: Expression[],
 };
-
-export type ExpressionWithGraph = Expression | AndGraphExpression;
 
 export default function generateGraph(input: Expression) {
   // Recursively descend into AND nodes.
+  return rewrite(input, {}, (expr, state) => {
+    if (expr.type === 'logical' && expr.op === '&&') {
+      let nodes: AndGraphNode[] = [];
+      let leftovers: Expression[] = [];
+      expr.values.forEach((value) => {
 
+      });
+      return {
+        expr: {
+          type: 'custom',
+          customType: 'andGraph',
+          nodes,
+          leftovers, 
+        },
+        state,
+      };
+    }
+    return { expr, state };
+  });
 }

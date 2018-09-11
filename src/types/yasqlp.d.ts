@@ -70,9 +70,14 @@ declare module 'yasqlp' {
     type: 'exists',
     value: SelectStatement,
   };
+  // This is equivalent to ... void *???
+  export type AnyExpression = {
+    type: 'custom',
+    customType: string,
+  } & { [key: string]: any };
   export type Expression = PrimaryExpression | BinaryExpression | InExpression |
     BetweenExpression | CompareExpression | UnaryExpression |
-    LogicalExpression | ExistsExpression | SelectStatement;
+    LogicalExpression | ExistsExpression | SelectStatement | AnyExpression;
   export type SelectColumn = {
     qualifier?: null | 'distinct' | 'all',
     name?: null | string,
