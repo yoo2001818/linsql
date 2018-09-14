@@ -1,6 +1,7 @@
 import { Expression, CompareExpression } from 'yasqlp';
 import deepEqual from 'deep-equal';
 
+import { rotateCompareOp } from '../op';
 import { rewrite } from '../traverse';
 
 type AndGraphNode = {
@@ -53,7 +54,7 @@ function handleCompare(
     let rightNode = findNode(right, nodes);
     currentNode.connections.push({ op, id: rightNode.id });
     rightNode.connections.push({
-      op: COMPARE_REVERSES[op],
+      op: rotateCompareOp(op),
       id: currentNode.id,
     });
   } else {
@@ -64,16 +65,6 @@ function handleCompare(
   }
 }
 
-const COMPARE_REVERSES = {
-  '=': '=' as '=',
-  '!=': '!=' as '!=',
-  '>=': '<=' as '<=',
-  '<=': '>=' as '>=',
-  '>': '<' as '<',
-  '<': '>' as '>',
-  'is': 'is' as 'is',
-  'like': 'like' as 'like',
-};
 
 export default function generateGraph(input: Expression) {
   // Recursively descend into AND nodes.
@@ -88,7 +79,7 @@ export default function generateGraph(input: Expression) {
             handleCompare(value.op, value.left, value.right, nodes);
           }
           if (!isConstant(value.right)) {
-            handleCompare(COMPARE_REVERSES[value.op],
+            handleCompare(rotateCompareOp(value.op),
               value.right, value.left, nodes);
           }
         } else if (value.type === 'boolean') {

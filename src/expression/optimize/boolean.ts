@@ -1,5 +1,6 @@
 import { Expression } from 'yasqlp';
 
+import { invertCompareOp, invertLogicalOp } from '../op';
 import { rewrite } from '../traverse';
 
 // Boolean logic optimizer
@@ -58,20 +59,6 @@ export function rewriteBetweenIn(expr: Expression) {
  * Moves NOT to bottom of the tree to simplify the logical operators.
  * @param expr The expression to rewrite NOT.
  */
-const LOGICAL_INVERSES = {
-  '&&': '||' as '||',
-  '||': '&&' as '&&',
-};
-const COMPARE_INVERSES = {
-  '=': '!=' as '!=',
-  '!=': '=' as '=',
-  '>=': '<' as '<',
-  '<=': '>' as '>',
-  '>': '<=' as '<=',
-  '<': '>=' as '>=',
-  'is': false as false,
-  'like': false as false,
-};
 
 type RewriteNotState = { inversed: boolean, bottom: boolean };
 
@@ -88,10 +75,18 @@ function mapRewriteNot(
   if (state.inversed) {
     switch (expr.type) {
       case 'logical': {
-        return { expr: { ...expr, op: LOGICAL_INVERSES[expr.op] }, state };
+        let newOp = invertLogicalOp(expr.op);
+        if (newOp === false) {
+          return {
+            expr: { type: 'unary', op: '!', value: { ...expr } },
+            state,
+          };
+        } else {
+          return { expr: { ...expr, op: newOp }, state };
+        }
       }
       case 'compare': {
-        let newOp = COMPARE_INVERSES[expr.op];
+        let newOp = invertCompareOp(expr.op);
         if (newOp === false) {
           return {
             expr: { type: 'unary', op: '!', value: expr },
