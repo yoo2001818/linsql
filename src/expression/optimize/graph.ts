@@ -3,6 +3,7 @@ import deepEqual from 'deep-equal';
 
 import { rotateCompareOp, isConstant } from '../op';
 import { rewrite } from '../traverse';
+import hashCode from '../../util/hashCode';
 
 type AndGraphNode = {
   id: number,
@@ -17,27 +18,41 @@ type AndGraphNode = {
   }[],
 };
 
+export class AndGraphFactory {
+  nodes: AndGraphNode[];
+  leftovers: Expression[];
+  nodeMap: { [key: number]: number };
+  constructor() {
+    this.nodes = [];
+    this.leftovers = [];
+    this.nodeMap = {};
+  }
+  createNode() {
+    let node: AndGraphNode = {
+      id: this.nodes.length,
+      names: [],
+      connections: [],
+      constants: [],
+    };
+    this.nodes.push(node);
+    return node;
+  }
+  findNode(expr: Expression) {
+    let id = this.nodeMap[hashCode(expr)];
+    if (id != null) {
+      return this.nodes[id];
+    } else {
+      return null;
+    }
+  }
+}
+
 export type AndGraphExpression = {
   type: 'custom',
   customType: 'andGraph',
   nodes: AndGraphNode[],
   leftovers: Expression[],
 };
-
-function findNode(expr: Expression, nodes: AndGraphNode[]) {
-  let currentNode = nodes.find(node =>
-    node.names.some(v => deepEqual(v, expr)));
-  if (currentNode == null) {
-    currentNode = {
-      id: nodes.length,
-      names: [expr],
-      connections: [],
-      constants: [],
-    };
-    nodes.push(currentNode);
-  }
-  return currentNode;
-}
 
 function handleCompare(
   op: CompareExpression['op'], left: Expression, right: Expression,
@@ -59,7 +74,6 @@ function handleCompare(
     });
   }
 }
-
 
 export default function rewriteGraph(input: Expression) {
   // Recursively descend into AND nodes.
