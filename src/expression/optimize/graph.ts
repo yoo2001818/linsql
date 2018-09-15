@@ -1,7 +1,7 @@
 import { Expression, CompareExpression } from 'yasqlp';
 import deepEqual from 'deep-equal';
 
-import { rotateCompareOp } from '../op';
+import { rotateCompareOp, isConstant } from '../op';
 import { rewrite } from '../traverse';
 
 type AndGraphNode = {
@@ -23,11 +23,6 @@ export type AndGraphExpression = {
   nodes: AndGraphNode[],
   leftovers: Expression[],
 };
-
-function isConstant(expr: Expression) {
-  // TODO handle constant arithmetic
-  return ['number', 'boolean', 'string'].includes(expr.type);
-}
 
 function findNode(expr: Expression, nodes: AndGraphNode[]) {
   let currentNode = nodes.find(node =>
@@ -66,7 +61,7 @@ function handleCompare(
 }
 
 
-export default function generateGraph(input: Expression) {
+export default function rewriteGraph(input: Expression) {
   // Recursively descend into AND nodes.
   return rewrite(input, {}, (expr, state) => {
     if (expr.type === 'logical' && expr.op === '&&') {
