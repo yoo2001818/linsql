@@ -1,5 +1,4 @@
 import { Expression, CompareExpression } from 'yasqlp';
-import deepEqual from 'deep-equal';
 
 import { rotateCompareOp, isConstant } from '../op';
 import { rewrite } from '../traverse';
@@ -16,6 +15,13 @@ type AndGraphNode = {
     op: CompareExpression['op'],
     value: Expression,
   }[],
+};
+
+export type AndGraphExpression = {
+  type: 'custom',
+  customType: 'andGraph',
+  nodes: AndGraphNode[],
+  leftovers: Expression[],
 };
 
 export class AndGraphFactory {
@@ -42,36 +48,66 @@ export class AndGraphFactory {
     if (id != null) {
       return this.nodes[id];
     } else {
-      return null;
+      let node = this.createNode();
+      node.names.push(expr);
+      this.nodeMap[hashCode(expr)] = node.id;
+      return node;
     }
   }
-}
-
-export type AndGraphExpression = {
-  type: 'custom',
-  customType: 'andGraph',
-  nodes: AndGraphNode[],
-  leftovers: Expression[],
-};
-
-function handleCompare(
-  op: CompareExpression['op'], left: Expression, right: Expression,
-  nodes: AndGraphNode[],
-) {
-  let currentNode = findNode(left, nodes);
-  if (!isConstant(right)) {
-    // Find a node associated with right node and add connection to it.
-    let rightNode = findNode(right, nodes);
-    currentNode.connections.push({ op, id: rightNode.id });
-    rightNode.connections.push({
-      op: rotateCompareOp(op),
-      id: currentNode.id,
+  mergeNode(left: AndGraphNode, right: AndGraphNode) {
+    // TODO Merge constants / connections properly
+    left.names = left.names.concat(right.names);
+    left.connections = left.connections.concat(right.connections);
+    left.constants = left.constants.concat(right.constants);
+    this.nodes[right.id] = null;
+    right.names.forEach(v => {
+      this.nodeMap[hashCode(v)] = left.id;
     });
-  } else {
-    currentNode.constants.push({
-      op,
-      value: right,
-    });
+    return left;
+  }
+  addConnection(
+    left: AndGraphNode, right: AndGraphNode, op: CompareExpression['op'],
+  ) {
+    if (left.id === right.id) return;
+    if (op === '=') {
+      this.mergeNode(left, right);
+    } else {
+      left.connections.push({ op, id: right.id });
+      right.connections.push({ op: rotateCompareOp(op), id: left.id });
+    }
+  }
+  addConstant(
+    node: AndGraphNode, value: Expression, op: CompareExpression['op'],
+  ) {
+    node.constants.push({ op, value });
+  }
+  handleCompare(expr: CompareExpression) {
+    let leftConstant = isConstant(expr.left);
+    let rightConstant = isConstant(expr.right);
+    if (!leftConstant && !rightConstant) {
+      let leftNode = this.findNode(expr.left);
+      let rightNode = this.findNode(expr.right);
+      this.addConnection(leftNode, rightNode, expr.op);
+    } else if (leftConstant !== rightConstant) {
+      let columnExpr = leftConstant ? expr.right : expr.left;
+      let constantExpr = leftConstant ? expr.left : expr.right;
+      let columnOp = leftConstant ? rotateCompareOp(expr.op) : expr.op;
+      let node = this.findNode(columnExpr);
+      this.addConstant(node, constantExpr, columnOp);
+    } else {
+      // Do nothing
+    }
+  }
+  handleLeftover(expr: Expression) {
+    this.leftovers.push(expr);
+  }
+  toJSON(): AndGraphExpression {
+    return {
+      type: 'custom',
+      customType: 'andGraph',
+      nodes: this.nodes,
+      leftovers: this.leftovers,
+    };
   }
 }
 
@@ -79,33 +115,16 @@ export default function rewriteGraph(input: Expression) {
   // Recursively descend into AND nodes.
   return rewrite(input, {}, (expr, state) => {
     if (expr.type === 'logical' && expr.op === '&&') {
-      let nodes: AndGraphNode[] = [];
-      let leftovers: Expression[] = [];
+      let graph = new AndGraphFactory();
       expr.values.forEach((value) => {
         if (value.type === 'compare') {
-          // Connection is performed on both side, left and right.
-          if (!isConstant(value.left)) {
-            handleCompare(value.op, value.left, value.right, nodes);
-          }
-          if (!isConstant(value.right)) {
-            handleCompare(rotateCompareOp(value.op),
-              value.right, value.left, nodes);
-          }
-        } else if (value.type === 'boolean') {
-          if (value.value === false) {
-            leftovers.push(value);
-          }
+          graph.handleCompare(value);
         } else {
-          leftovers.push(value);
+          graph.handleLeftover(value);
         }
       });
       return {
-        expr: {
-          type: 'custom',
-          customType: 'andGraph',
-          nodes,
-          leftovers, 
-        },
+        expr: graph.toJSON(),
         state,
       };
     }

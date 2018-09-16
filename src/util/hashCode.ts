@@ -18,6 +18,13 @@ export default function hashCode(value: any): number {
       result += 31 * result + hashCode(value[i]) | 0;
     }
     return result;
+  } else if (typeof value === 'object') {
+    let result = 23;
+    for (let key in value) {
+      result += 31 * result + hashCode(key) | 0;
+      result += 31 * result + hashCode(value[key]) | 0;
+    }
+    return result;
   } else {
     return 0;
   }

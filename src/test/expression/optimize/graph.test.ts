@@ -21,18 +21,22 @@ describe('rewriteNot', () => {
       .toEqual({
         type: 'custom',
         customType: 'andGraph',
-        nodes: [{
-          id: 0,
-          names: [
-            getColumn('SELECT a.a;'),
-            getColumn('SELECT b.c;'),
-            getColumn('SELECT b.d;'),
-          ],
-          constants: [
-            { op: '>', value: getColumn('SELECT 1;') },
-          ],
-          connections: [],
-        }],
+        nodes: [
+          {
+            id: 0,
+            names: [
+              getColumn('SELECT a.a;'),
+              getColumn('SELECT b.d;'),
+              getColumn('SELECT b.c;'),
+            ],
+            constants: [
+              { op: '>', value: getColumn('SELECT 1;') },
+            ],
+            connections: [],
+          },
+          null,
+          null,
+        ],
         leftovers: [
           getColumn('SELECT TRUE;'),
         ],
