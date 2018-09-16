@@ -5,13 +5,13 @@ import rewriteGraph from '../../../expression/optimize/graph';
 function getWhere(code: string): Expression {
   let stmt = parse(code)[0];
   if (stmt.type === 'select') return stmt.where;
-  throw new Error('Given statement is not select stement');
+  throw new Error('Given statement is not select statement');
 }
 
 function getColumn(code: string): Expression {
   let stmt = parse(code)[0];
   if (stmt.type === 'select') return stmt.columns[0].value;
-  throw new Error('Given statement is not select stement');
+  throw new Error('Given statement is not select statement');
 }
 
 describe('rewriteNot', () => {

@@ -4,7 +4,7 @@ import { getCode } from '../../expression';
 function getWhere(code: string): Expression {
   let stmt = parse(code)[0];
   if (stmt.type === 'select') return stmt.where;
-  throw new Error('Given statement is not select stement');
+  throw new Error('Given statement is not select statement');
 }
 
 function unindent(input: TemplateStringsArray) {
