@@ -1,5 +1,7 @@
 import { Expression } from 'yasqlp';
 
+import { AndGraphExpression } from './optimize/graph';
+
 /**
  * Rewrites the whole expression tree by recursively descending tree with
  * mapper function.
@@ -83,6 +85,36 @@ export function rewrite<T>(
         value !== newExpr.value || elseVal !== newExpr.else
       ) {
         return { ...newExpr, value, matches, else: elseVal };
+      }
+      return newExpr;
+    }
+    case 'custom': {
+      if (newExpr.customType === 'andGraph') {
+        let andGraph = newExpr as AndGraphExpression;
+        let leftovers = andGraph.leftovers.map(
+          v => rewrite(v, newState, mapper));
+        let nodes = andGraph.nodes.map(node => {
+          let names = node.names.map(v => rewrite(v, newState, mapper));
+          let constants = node.constants.map(constant => {
+            let value = rewrite(constant.value, newState, mapper);
+            if (value !== constant.value) {
+              return { ...constant, value };
+            }
+            return constant;
+          });
+          if (node.names.some((v, i) => v !== names[i]) ||
+            node.constants.some((v, i) => v !== constants[i])
+          ) {
+            return { ...node, names, constants };
+          }
+          return node;
+        });
+        if (andGraph.leftovers.some((v, i) => v !== leftovers[i]) ||
+          andGraph.nodes.some((v, i) => v !== nodes[i])
+        ) {
+          return { ...andGraph, leftovers, nodes };
+        }
+        return andGraph;
       }
     }
     /*

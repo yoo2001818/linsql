@@ -32,7 +32,9 @@
   },
   "dependencies": {
     "@types/deep-equal": "^1.0.1",
+    "@types/lodash.clonedeep": "^4.5.4",
     "deep-equal": "^1.0.1",
+    "lodash.clonedeep": "^4.5.0",
     "yasqlp": "^0.1.5"
   }
 }

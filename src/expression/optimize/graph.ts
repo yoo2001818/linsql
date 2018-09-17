@@ -1,4 +1,5 @@
 import { Expression, CompareExpression } from 'yasqlp';
+import cloneDeep from 'lodash.clonedeep';
 
 import { rotateCompareOp, isConstant } from '../op';
 import { rewrite } from '../traverse';
@@ -109,13 +110,26 @@ export class AndGraphFactory {
       leftovers: this.leftovers,
     };
   }
+  clone(): AndGraphFactory {
+    let cloned = new AndGraphFactory();
+    cloned.nodes = cloneDeep(this.nodes);
+    cloned.leftovers = this.leftovers.slice();
+    cloned.nodeMap = { ...this.nodeMap };
+    // Shouldn't it be better to do CoW?
+    return cloned;
+  }
 }
 
 export default function rewriteGraph(input: Expression) {
   // Recursively descend into AND nodes.
-  return rewrite(input, {}, (expr, state) => {
+  return rewrite(input, { parent: null }, (expr, state) => {
     if (expr.type === 'logical' && expr.op === '&&') {
-      let graph = new AndGraphFactory();
+      let graph: AndGraphFactory;
+      if (state.parent != null) {
+        graph = state.parent.clone();
+      } else {
+        graph = new AndGraphFactory();
+      }
       expr.values.forEach((value) => {
         if (value.type === 'compare') {
           graph.handleCompare(value);
@@ -125,7 +139,7 @@ export default function rewriteGraph(input: Expression) {
       });
       return {
         expr: graph.toJSON(),
-        state,
+        state: { parent: graph },
       };
     }
     return { expr, state };
