@@ -56,7 +56,7 @@ export class AndGraphFactory {
     }
   }
   mergeNode(left: AndGraphNode, right: AndGraphNode) {
-    // TODO Merge constants / connections properly
+    // TODO Merge constants / connections properly.
     left.names = left.names.concat(right.names);
     left.connections = left.connections.concat(right.connections);
     left.constants = left.constants.concat(right.constants);
@@ -83,6 +83,10 @@ export class AndGraphFactory {
     node.constants.push({ op, value });
   }
   handleCompare(expr: CompareExpression) {
+    // Connection can be eliminated if the same operators show up twice.
+    // Constants can be eliminated using ordered set notation.
+    // If a < 3 AND b < a, we can be sure b < 3. However, this is so tricky
+    // it should be done later.
     let leftConstant = isConstant(expr.left);
     let rightConstant = isConstant(expr.right);
     if (!leftConstant && !rightConstant) {

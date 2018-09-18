@@ -119,6 +119,8 @@ results.
    - `A = B + 5 + 3` to `A = B + 8`
    - `-A > 5` to `A < -5`
    - `A * -2 = 10` to `A = -5`
+4. Move predicate's column value to the left.
+   - `'3' = a.a` to `a.a = '3'`
 
 ### Getting predicate graph
 For further optimizations, we need to render a graph with columns and
@@ -126,22 +128,43 @@ predicates, so we can exploit transitivity and implement short circuit
 elimination.
 
 #### Predicate graph generation
-Each column has a list of predicate with constant values, and connections to
-other columns. Each connection, or predicates are represented with target value,
-and operator. Basically it's same as compare operator, but without left value.
+Each column has a list of predicate with other values, a list of connections,
+and names of the column. Each connection, or predicates are represented with
+target value, and operator. Basically it's same as compare operator, but
+without left value.
 
-Constants are represented as OR, so range lookup, and IN expression both can be
-represented inside it.
+Constants are represented as AND graph's values, so actual SARG generation is
+up to the index lookup iterator. This is unavoidable otherwise it's not possible
+to represent `IN (SELECT ...)` operator, which is completely dynamic and thus
+its SARG must be constructed after retriving whatever rows are inside it.
+
+It's also necessary to represent non-SARGable constant values, such as
+`FLOOR(a) = 5`. (In this case, if the SARG generator is smart enough, it can be
+converted to `a >= 5 AND a < 6`.)
+
+However, columns must be placed at left instead of right in order to do this.
+(This should be done previous pre-process optimization)
+
+Thus, though it's quite a bummer to not include range optimization inside here,
+it's actually beneficial to move at later stage of optimization since they can
+optimize at its discrection, so it'd be easier to support spatial data or
+JSON data.... given that we have indexes for them. This is especially true for
+non-totally ordered set.
+
+Even though that's the case, the graph generator must defer OR expression to
+the last so it can detect all the columns are the same.
+
+For example, `a.a = b.a AND (a.a = 1 OR b.a = 2)`, OR expression must not
+be moved inside leftovers.
+
+Connections should be recorded separately for the sake of optimization; it can
+be referred using node IDs, and it can be used to optimize some absurd cases:
+`a.a > a.b AND a.b = 3` - We can derive `a.a > 3`.
 
 However, this design is only elligible for AND. For queries like
 `a.a = b.a OR a.a = c.a`, we need to separate query path and run union,
 or run full scan. For this case, it should be generated last so descendant can
 use parent's predicates data.
-
-However, if only single column is involved in OR, such as `a.a = 1 OR a.a = 2`,
-can be handled inside this design. (However, all predicates in OR expression
-must point to single column, and constant values. Otherwise, it'd be better to
-treat OR value as a subquery.)
 
 It'd be better idea to treat equality group as a cluster, so equality group can
 be represented in O(N+M) space, not O(N^2) space. Other compare operators
@@ -155,9 +178,9 @@ Take this for example: `a.id = b.id AND a.id >= 3 AND b.id <= 3`
     { type: 'column', table: 'a', name: 'id' },
     { type: 'column', table: 'b', name: 'id' },
   ],
-  constants: [
-    { op: '>=', value: { type: 'number', value: 3 } },
-    { op: '<=', value: { type: 'number', value: 3 } },
+  constaints: [
+    { type: 'compare', op: '>=', left: ..., right: { type: 'number', value: 3 } },
+    { type: 'compare', op: '<=', left: ..., right: { type: 'number', value: 3 } },
   ],
   connections: [],
 }]
@@ -204,12 +227,14 @@ they're composed of AND and compare expressions - we need another way.
 
 MySQL expresses this within normal AST like `=(a.id, b.id) AND a.id = 3`,
 however, while it's possible to express graphs like that, it's not able to
-eliminate unnecessary predicates like `a.id > 3 AND a.id < 1`.
+eliminate unnecessary predicates like `a.id > 3 AND a.id < 1`. (This is done
+at SARGs generation time.)
 
 It might be possible to express them using special case of ANDs - which can be
 converted to native expression and vice versa. It should be able to be
-converted back because expression evaluator doesn't know how to handle them,
-and they shouldn't be.
+converted back when passing to the SARGs generator because expression evaluator
+doesn't know how to handle them, and they shouldn't be. However, this is
+still useful for query path generation.
 
 If we add new type of expression, named `andGraph`, we can express the
 AND graphs like this:
@@ -222,9 +247,19 @@ AND graphs like this:
       { type: 'column', table: 'a', name: 'id' },
       { type: 'column', table: 'b', name: 'id' },
     ],
-    constants: [
-      { op: '>=', value: { type: 'number', value: 3 } },
-      { op: '<=', value: { type: 'number', value: 3 } },
+    constraints: [
+      {
+        type: 'compare',
+        op: '>=',
+        left: { type: 'column', table: 'a', name: 'id' },
+        right: { type: 'number', value: 3 },
+      },
+      {
+        type: 'compare',
+        op: '<=',
+        left: { type: 'column', table: 'a', name: 'id' },
+        right: { type: 'number', value: 3 },
+      },
     ],
     connections: [],
   }],
