@@ -12,10 +12,7 @@ type AndGraphNode = {
     op: CompareExpression['op'],
     id: number,
   }[],
-  constants: {
-    op: CompareExpression['op'],
-    value: Expression,
-  }[],
+  constraints: Expression[],
 };
 
 export type AndGraphExpression = {
@@ -39,7 +36,7 @@ export class AndGraphFactory {
       id: this.nodes.length,
       names: [],
       connections: [],
-      constants: [],
+      constraints: [],
     };
     this.nodes.push(node);
     return node;
@@ -59,7 +56,7 @@ export class AndGraphFactory {
     // TODO Merge constants / connections properly.
     left.names = left.names.concat(right.names);
     left.connections = left.connections.concat(right.connections);
-    left.constants = left.constants.concat(right.constants);
+    left.constraints = left.constraints.concat(right.constraints);
     this.nodes[right.id] = null;
     right.names.forEach(v => {
       this.nodeMap[hashCode(v)] = left.id;
@@ -77,10 +74,8 @@ export class AndGraphFactory {
       right.connections.push({ op: rotateCompareOp(op), id: left.id });
     }
   }
-  addConstant(
-    node: AndGraphNode, value: Expression, op: CompareExpression['op'],
-  ) {
-    node.constants.push({ op, value });
+  addConstraint(node: AndGraphNode, expr: Expression) {
+    node.constraints.push(expr);
   }
   handleCompare(expr: CompareExpression) {
     // Connection can be eliminated if the same operators show up twice.
@@ -95,10 +90,8 @@ export class AndGraphFactory {
       this.addConnection(leftNode, rightNode, expr.op);
     } else if (leftConstant !== rightConstant) {
       let columnExpr = leftConstant ? expr.right : expr.left;
-      let constantExpr = leftConstant ? expr.left : expr.right;
-      let columnOp = leftConstant ? rotateCompareOp(expr.op) : expr.op;
       let node = this.findNode(columnExpr);
-      this.addConstant(node, constantExpr, columnOp);
+      this.addConstraint(node, expr);
     } else {
       // Do nothing
     }

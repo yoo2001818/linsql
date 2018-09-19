@@ -94,18 +94,14 @@ export function rewrite<T>(
         let leftovers = andGraph.leftovers.map(
           v => rewrite(v, newState, mapper));
         let nodes = andGraph.nodes.map(node => {
+          if (node == null) return node;
           let names = node.names.map(v => rewrite(v, newState, mapper));
-          let constants = node.constants.map(constant => {
-            let value = rewrite(constant.value, newState, mapper);
-            if (value !== constant.value) {
-              return { ...constant, value };
-            }
-            return constant;
-          });
+          let constraints = node.constraints.map(
+            constraint => rewrite(constraint, newState, mapper));
           if (node.names.some((v, i) => v !== names[i]) ||
-            node.constants.some((v, i) => v !== constants[i])
+            node.constraints.some((v, i) => v !== constraints[i])
           ) {
-            return { ...node, names, constants };
+            return { ...node, names, constraints };
           }
           return node;
         });

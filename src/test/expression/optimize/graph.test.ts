@@ -29,8 +29,8 @@ describe('rewriteNot', () => {
               getColumn('SELECT b.d;'),
               getColumn('SELECT b.c;'),
             ],
-            constants: [
-              { op: '>', value: getColumn('SELECT 1;') },
+            constraints: [
+              getWhere('SELECT 1 WHERE a.a > 1;'),
             ],
             connections: [],
           },
