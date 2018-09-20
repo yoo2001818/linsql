@@ -1,5 +1,5 @@
 import { CompareExpression, LogicalExpression, Expression,
-  ColumnValue, ExistsExpression, SelectStatement,  } from 'yasqlp';
+  ColumnValue, SelectStatement } from 'yasqlp';
 
 const LOGICAL_INVERSES = {
   '&&': '||' as '||',
@@ -108,4 +108,8 @@ export function getDependencies(
 
 export function isConstant(expr: Expression): boolean {
   return getDependencies(expr).length === 0;
+}
+
+export function isColumn(expr: Expression): expr is ColumnValue {
+  return expr.type === 'column';
 }

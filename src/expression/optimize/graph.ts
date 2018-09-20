@@ -1,7 +1,7 @@
 import { Expression, CompareExpression } from 'yasqlp';
 import cloneDeep from 'lodash.clonedeep';
 
-import { rotateCompareOp, isConstant } from '../op';
+import { rotateCompareOp, isColumn } from '../op';
 import { rewrite } from '../traverse';
 import hashCode from '../../util/hashCode';
 
@@ -15,6 +15,16 @@ type AndGraphNode = {
   constraints: Expression[],
 };
 
+type AndGraphInternalNode = {
+  id: number,
+  names: Expression[],
+  connections: {
+    op: CompareExpression['op'],
+    expr: Expression,
+  }[],
+  constraints: Expression[],
+};
+
 export type AndGraphExpression = {
   type: 'custom',
   customType: 'andGraph',
@@ -23,7 +33,7 @@ export type AndGraphExpression = {
 };
 
 export class AndGraphFactory {
-  nodes: AndGraphNode[];
+  nodes: AndGraphInternalNode[];
   leftovers: Expression[];
   nodeMap: { [key: number]: number };
   constructor() {
@@ -32,7 +42,7 @@ export class AndGraphFactory {
     this.nodeMap = {};
   }
   createNode() {
-    let node: AndGraphNode = {
+    let node: AndGraphInternalNode = {
       id: this.nodes.length,
       names: [],
       connections: [],
@@ -52,7 +62,7 @@ export class AndGraphFactory {
       return node;
     }
   }
-  mergeNode(left: AndGraphNode, right: AndGraphNode) {
+  mergeNode(left: AndGraphInternalNode, right: AndGraphInternalNode) {
     // TODO Merge constants / connections properly.
     left.names = left.names.concat(right.names);
     left.connections = left.connections.concat(right.connections);
@@ -64,17 +74,18 @@ export class AndGraphFactory {
     return left;
   }
   addConnection(
-    left: AndGraphNode, right: AndGraphNode, op: CompareExpression['op'],
+    left: AndGraphInternalNode, right: AndGraphInternalNode,
+    op: CompareExpression['op'],
   ) {
     if (left.id === right.id) return;
     if (op === '=') {
       this.mergeNode(left, right);
     } else {
-      left.connections.push({ op, id: right.id });
-      right.connections.push({ op: rotateCompareOp(op), id: left.id });
+      left.connections.push({ op, expr: right.names[0] });
+      right.connections.push({ op: rotateCompareOp(op), expr: left.names[0] });
     }
   }
-  addConstraint(node: AndGraphNode, expr: Expression) {
+  addConstraint(node: AndGraphInternalNode, expr: Expression) {
     node.constraints.push(expr);
   }
   handleCompare(expr: CompareExpression) {
@@ -82,22 +93,35 @@ export class AndGraphFactory {
     // Constants can be eliminated using ordered set notation.
     // If a < 3 AND b < a, we can be sure b < 3. However, this is so tricky
     // it should be done later.
-    let leftConstant = isConstant(expr.left);
-    let rightConstant = isConstant(expr.right);
-    if (!leftConstant && !rightConstant) {
+    let leftCol = isColumn(expr.left);
+    let rightCol = isColumn(expr.right);
+    if (leftCol && rightCol) {
       let leftNode = this.findNode(expr.left);
       let rightNode = this.findNode(expr.right);
       this.addConnection(leftNode, rightNode, expr.op);
-    } else if (leftConstant !== rightConstant) {
-      let columnExpr = leftConstant ? expr.right : expr.left;
+    } else if (leftCol !== rightCol) {
+      let columnExpr = leftCol ? expr.left : expr.right;
       let node = this.findNode(columnExpr);
       this.addConstraint(node, expr);
     } else {
-      // Do nothing
+      this.handleLeftover(expr);
     }
   }
   handleLeftover(expr: Expression) {
     this.leftovers.push(expr);
+  }
+  process(expr: Expression) {
+    // There are four types of express which alters the state of the graph - 
+    // 1. column = column - Directly creates equality group and merges two
+    //    equality groups.
+    // 2. column >= column - Adds connection edge.
+    // 3. column = constant - Adds constraint edge.
+    // 4. constant - Adds leftover item.
+    // Any other actions can be performed without any problem, but merging is
+    // too expensive - it needs to reorder IDs - which involves traversing
+    // every edge in every node.
+    // Or, we can just store expression for connections, and rebind them while
+    // building JSON.
   }
   toJSON(): AndGraphExpression {
     return {
@@ -127,13 +151,7 @@ export default function rewriteGraph(input: Expression) {
       } else {
         graph = new AndGraphFactory();
       }
-      expr.values.forEach((value) => {
-        if (value.type === 'compare') {
-          graph.handleCompare(value);
-        } else {
-          graph.handleLeftover(value);
-        }
-      });
+      graph.process(expr);
       return {
         expr: graph.toJSON(),
         state: { parent: graph },
