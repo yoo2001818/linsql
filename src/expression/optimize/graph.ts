@@ -127,7 +127,13 @@ export class AndGraphFactory {
     return {
       type: 'custom',
       customType: 'andGraph',
-      nodes: this.nodes,
+      nodes: this.nodes.map(node => ({
+        ...node,
+        connections: node.connections.map(connection => ({
+          op: connection.op,
+          id: this.nodeMap[hashCode(connection.expr)],
+        })),
+      })),
       leftovers: this.leftovers,
     };
   }
