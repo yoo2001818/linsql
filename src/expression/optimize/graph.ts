@@ -1,4 +1,4 @@
-import { Expression, CompareExpression } from 'yasqlp';
+import { Expression, CompareExpression, LogicalExpression } from 'yasqlp';
 import cloneDeep from 'lodash.clonedeep';
 
 import { rotateCompareOp, isColumn } from '../op';
@@ -88,7 +88,7 @@ export class AndGraphFactory {
   addConstraint(node: AndGraphInternalNode, expr: Expression) {
     node.constraints.push(expr);
   }
-  handleCompare(expr: CompareExpression) {
+  processCompare(expr: CompareExpression) {
     // Connection can be eliminated if the same operators show up twice.
     // Constants can be eliminated using ordered set notation.
     // If a < 3 AND b < a, we can be sure b < 3. However, this is so tricky
@@ -104,24 +104,39 @@ export class AndGraphFactory {
       let node = this.findNode(columnExpr);
       this.addConstraint(node, expr);
     } else {
-      this.handleLeftover(expr);
+      this.processLeftover(expr);
     }
   }
-  handleLeftover(expr: Expression) {
+  processLeftover(expr: Expression) {
     this.leftovers.push(expr);
   }
-  process(expr: Expression) {
+  process(expr: LogicalExpression) {
     // There are four types of express which alters the state of the graph - 
     // 1. column = column - Directly creates equality group and merges two
     //    equality groups.
     // 2. column >= column - Adds connection edge.
     // 3. column = constant - Adds constraint edge.
     // 4. constant - Adds leftover item.
-    // Any other actions can be performed without any problem, but merging is
-    // too expensive - it needs to reorder IDs - which involves traversing
-    // every edge in every node.
-    // Or, we can just store expression for connections, and rebind them while
-    // building JSON.
+    expr.values.forEach(value => {
+      if (value.type === 'compare') {
+        this.processCompare(value);
+      } else if (value.type === 'logical') {
+        // Do nothing in first pass
+      } else {
+        this.processLeftover(value);
+      }
+    });
+    // Process OR in 2nd pass.
+    expr.values.forEach(value => {
+      if (value.type === 'logical') {
+        if (value.op === '||') {
+          // If all operators inside here references the same column, we can put
+          // them in constraints.
+        } else if (value.op === '&&') {
+          this.process(value);
+        }
+      }
+    });
   }
   toJSON(): AndGraphExpression {
     return {
