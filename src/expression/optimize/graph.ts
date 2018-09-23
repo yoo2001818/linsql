@@ -51,11 +51,12 @@ export class AndGraphFactory {
     this.nodes.push(node);
     return node;
   }
-  findNode(expr: Expression) {
+  findNode(expr: Expression, create: boolean = true) {
     let id = this.nodeMap[hashCode(expr)];
     if (id != null) {
       return this.nodes[id];
     } else {
+      if (!create) return null;
       let node = this.createNode();
       node.names.push(expr);
       this.nodeMap[hashCode(expr)] = node.id;
@@ -63,7 +64,6 @@ export class AndGraphFactory {
     }
   }
   mergeNode(left: AndGraphInternalNode, right: AndGraphInternalNode) {
-    // TODO Merge constants / connections properly.
     left.names = left.names.concat(right.names);
     left.connections = left.connections.concat(right.connections);
     left.constraints = left.constraints.concat(right.constraints);
@@ -132,6 +132,31 @@ export class AndGraphFactory {
         if (value.op === '||') {
           // If all operators inside here references the same column, we can put
           // them in constraints.
+          // TODO Move this somewhere else?
+          let node: AndGraphInternalNode = null;
+          let passable = value.values.every(value => {
+            if (value.type !== 'compare') return false;
+            let leftCol = isColumn(value.left);
+            let rightCol = isColumn(value.right);
+            if (leftCol && rightCol) {
+              // This should be considered as individual AND graph, if possible
+              return false;
+            } else if (leftCol !== rightCol) {
+              let columnExpr = leftCol ? value.left : value.right;
+              let localNode = this.findNode(columnExpr, false);
+              if (localNode == null) return false;
+              if (node == null) node = localNode;
+              return node === localNode;
+            } else {
+              // TODO Evaluate it right now
+              return false;
+            }
+          });
+          if (passable && node != null) {
+            this.addConstraint(node, value);
+          } else {
+            this.processLeftover(value);
+          }
         } else if (value.op === '&&') {
           this.process(value);
         }
@@ -142,7 +167,7 @@ export class AndGraphFactory {
     return {
       type: 'custom',
       customType: 'andGraph',
-      nodes: this.nodes.map(node => ({
+      nodes: this.nodes.filter(node => node != null).map(node => ({
         ...node,
         connections: node.connections.map(connection => ({
           op: connection.op,
