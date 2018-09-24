@@ -110,6 +110,15 @@ export class AndGraphFactory {
   processLeftover(expr: Expression) {
     this.leftovers.push(expr);
   }
+  processAny(expr: Expression) {
+    if (expr.type === 'compare') {
+      this.processCompare(expr);
+    } else if (expr.type === 'logical') {
+      // TODO
+    } else {
+      this.processLeftover(expr);
+    }
+  }
   process(expr: LogicalExpression) {
     // There are four types of express which alters the state of the graph - 
     // 1. column = column - Directly creates equality group and merges two
@@ -127,6 +136,7 @@ export class AndGraphFactory {
       }
     });
     // Process OR in 2nd pass.
+    let orExprs: LogicalExpression[] = [];
     expr.values.forEach(value => {
       if (value.type === 'logical') {
         if (value.op === '||') {
@@ -155,12 +165,25 @@ export class AndGraphFactory {
           if (passable && node != null) {
             this.addConstraint(node, value);
           } else {
-            this.processLeftover(value);
+            // Before throwing itself into leftover, its children should
+            // extend andGraph in order to fetch some useful information from
+            // the parent.
+            orExprs.push(value);
           }
         } else if (value.op === '&&') {
           this.process(value);
         }
       }
+    });
+    orExprs.forEach(orExpr => {
+      this.processLeftover({
+        ...orExpr,
+        values: orExpr.values.map((expr, i) => {
+          let parent = this.clone();
+          parent.processAny(expr);
+          return parent.toJSON();
+        }),
+      });
     });
   }
   toJSON(): AndGraphExpression {

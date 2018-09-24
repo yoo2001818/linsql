@@ -94,4 +94,61 @@ describe('rewriteNot', () => {
         leftovers: [],
       });
   });
+  it('should convert OR in leftovers into individual AND graphs', () => {
+    expect(rewriteGraph(getWhere(
+      'SELECT 1 WHERE a.a = a.b AND (a.b = 1 OR a.c = 1);')))
+      .toEqual({
+        type: 'custom',
+        customType: 'andGraph',
+        nodes: [{
+          id: 0,
+          names: [
+            getColumn('SELECT a.a;'),
+            getColumn('SELECT a.b;'),
+          ],
+          constraints: [],
+          connections: [],
+        }],
+        leftovers: [{
+          type: 'logical',
+          op: '||',
+          values: [{
+            type: 'custom',
+            customType: 'andGraph',
+            nodes: [{
+              id: 0,
+              names: [
+                getColumn('SELECT a.a;'),
+                getColumn('SELECT a.b;'),
+              ],
+              constraints: [
+                getWhere('SELECT 1 WHERE a.b = 1;'),
+              ],
+              connections: [],
+            }],
+          }, {
+            type: 'custom',
+            customType: 'andGraph',
+            nodes: [{
+              id: 0,
+              names: [
+                getColumn('SELECT a.a;'),
+                getColumn('SELECT a.b;'),
+              ],
+              constraints: [],
+              connections: [],
+            }, {
+              id: 1,
+              names: [
+                getColumn('SELECT a.c;'),
+              ],
+              constraints: [
+                getWhere('SELECT 1 WHERE a.c = 1;'),
+              ],
+              connections: [],
+            }],
+          }],
+        }],
+      });
+  });
 });
