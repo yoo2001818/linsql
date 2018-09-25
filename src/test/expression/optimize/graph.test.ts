@@ -126,6 +126,7 @@ describe('rewriteNot', () => {
               ],
               connections: [],
             }],
+            leftovers: [],
           }, {
             type: 'custom',
             customType: 'andGraph',
@@ -138,7 +139,7 @@ describe('rewriteNot', () => {
               constraints: [],
               connections: [],
             }, {
-              id: 1,
+              id: 2,
               names: [
                 getColumn('SELECT a.c;'),
               ],
@@ -147,6 +148,7 @@ describe('rewriteNot', () => {
               ],
               connections: [],
             }],
+            leftovers: [],
           }],
         }],
       });
