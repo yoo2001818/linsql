@@ -38,15 +38,6 @@ export function rewriteCompareColumn(expr: Expression) {
  * As you can see, this is completely non-trivial and requires some effort.
  * @param expr The expression to convert to SARGs if possible.
  */
-
- // a + b = 0 -> a = -b
- // a + 3 * 5 -> a + 15
- // a / 2 + 3 = 0 -> a / 2 = -3 -> a = -6
- 
- // 1. expansion of trapped columns
- // 2. push all constants to right
- // 3. evaluate all constants
- // 4. push other column to the right
 export function rewriteSargable(expr: Expression) {
   return rewrite(expr, {}, (expr, state) => {
     if (expr.type === 'compare') {
