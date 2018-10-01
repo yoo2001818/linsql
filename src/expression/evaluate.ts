@@ -147,19 +147,38 @@ export default function evaluate(expr: Expression, row?: Row): any {
       return method.apply(null, expr.args.map(v => evaluate(v, row)));
     }
     case 'case': {
-      // TODO
+      if (expr.value != null) {
+        let value = evaluate(expr.value, row);
+        let match = expr.matches.find(
+          v => compareEq(value, evaluate(v.query, row)));
+        if (match != null) return evaluate(match.value, row);
+        if (expr.else != null) return evaluate(expr.else, row);
+        return null;
+      } else {
+        let match = expr.matches.find(
+          v => castBool(evaluate(v.query, row)));
+        if (match != null) return evaluate(match.value, row);
+        if (expr.else != null) return evaluate(expr.else, row);
+        return null;
+      }
     }
     case 'custom':
     case 'aggregation':
     case 'exists':
     case 'select':
+      // We can't do anything in this case
+      return null;
     case 'string':
     case 'number':
     case 'boolean':
+      return expr.value;
     case 'wildcard':
-    case 'column':
     case 'default':
     case 'null':
+      return null;
+    case 'column':
+      return row[expr.table][expr.name];
     default:
+      throw new Error('Unhandled expression type');
   }
 }
