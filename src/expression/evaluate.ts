@@ -2,6 +2,7 @@ import { Expression } from 'yasqlp';
 
 import methods from './methods';
 import { Row } from '../row';
+import { AndGraphExpression } from './optimize/graph';
 
 function castString(value: any): string | null {
   if (value == null) {
@@ -162,7 +163,29 @@ export default function evaluate(expr: Expression, row?: Row): any {
         return null;
       }
     }
-    case 'custom':
+    case 'custom': {
+      switch (expr.customType) {
+        case 'andGraph': {
+          let andGraph = expr as AndGraphExpression;
+          let representers = andGraph.nodes.map(v =>
+            evaluate(v.names[0], row));
+          let nodePassed = andGraph.nodes.every((node, i) => {
+            let representer = representers[i];
+            // Validate if all name equals
+            if (!node.names.slice(1)
+              .every(v => compareEq(representer, evaluate(v, row)))
+            ) {
+              return false;
+            }
+            // Validate if connection matches
+            node.connections.every(v => {});
+          });
+          andGraph.leftovers
+        }
+        default:
+          throw new Error('Unhandled expression type');
+      }
+    }
     case 'aggregation':
     case 'exists':
     case 'select':
