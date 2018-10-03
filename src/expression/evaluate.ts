@@ -48,7 +48,7 @@ function compareEq(left: any, right: any): boolean | null {
   }
 }
 
-// TODO Use expression for this
+// TODO Use expression for the result?
 export default function evaluate(expr: Expression, row?: Row): any {
   switch (expr.type) {
     case 'logical':
@@ -141,7 +141,7 @@ export default function evaluate(expr: Expression, row?: Row): any {
       return;
     }
     case 'function': {
-      let method = methods[expr.name];
+      let method = methods[expr.name.toLowerCase()];
       if (method == null) {
         throw new Error('Unknown method ' + expr.name);
       }
