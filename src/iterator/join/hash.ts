@@ -2,7 +2,7 @@ import { Expression } from 'yasqlp';
 import { Row } from '../../row';
 import planHashJoin, { HashJoinPlan } from '../../planner/hashJoin';
 import RowIterator from '../type';
-import compileExpression from '../../expression';
+import compileExpression from '../../expression/compile';
 import hashCode from '../../util/hashCode';
 import createJoinRow from '../../util/joinRow';
 

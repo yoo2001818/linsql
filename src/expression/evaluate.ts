@@ -172,15 +172,33 @@ export default function evaluate(expr: Expression, row?: Row): any {
           let nodePassed = andGraph.nodes.every((node, i) => {
             let representer = representers[i];
             // Validate if all name equals
-            if (!node.names.slice(1)
-              .every(v => compareEq(representer, evaluate(v, row)))
+            if (!node.names.slice(1).every(
+              v => compareEq(representer, evaluate(v, row)))
             ) {
               return false;
             }
-            // Validate if connection matches
-            node.connections.every(v => {});
+            // Validate if all connection matches
+            if (!node.connections.every(
+              v => castBool(evaluate({
+                type: 'compare',
+                op: v.op,
+                left: representer,
+                right: representers[v.id],
+              }, row)))
+            ) {
+              return false;
+            }
+            // Validate if all constraint matches
+            if (!node.constraints.every(
+              v => castBool(evaluate(v, row)))
+            ) {
+              return false;
+            }
+            return true;
           });
-          andGraph.leftovers
+          // TODO Handle null
+          if (!nodePassed) return false;
+          return andGraph.leftovers.every(v => evaluate(v, row));
         }
         default:
           throw new Error('Unhandled expression type');

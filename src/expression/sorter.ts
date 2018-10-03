@@ -1,6 +1,6 @@
 import { OrderByRef } from 'yasqlp';
 import { Row } from '../row';
-import compileExpression from '../expression';
+import compileExpression from './compile';
 
 export default function compileSorter(tables: string[], order: OrderByRef[]) {
   // Compile each evaluators

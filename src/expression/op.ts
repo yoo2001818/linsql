@@ -49,6 +49,7 @@ export function rotateCompareOp(
 export function getDependencies(
   expr: Expression,
 ): (ColumnValue | SelectStatement)[] {
+  if (expr == null) return [];
   switch (expr.type) {
     case 'logical':
       return Array.prototype.concat.apply([], 
@@ -88,21 +89,34 @@ export function getDependencies(
         expr.args.map(v => getDependencies(v)));
     case 'case':
       // TODO
+      // expr.value
+      // expr.matches
+      // expr.else
+      return [
+        ...getDependencies(expr.value),
+        ...Array.prototype.concat.apply([], expr.matches.map(match => [
+          ...getDependencies(match.query),
+          ...getDependencies(match.value),
+        ])),
+        ...getDependencies(expr.else),
+      ];
     case 'aggregation':
       // TODO
+      return [{ type: 'column', table: '_aggr', name: '' }];
     case 'exists':
       return getDependencies(expr.value);
     case 'column':
       return [expr];
     case 'wildcard':
     case 'default':
+      return [null];
     case 'string':
     case 'number':
     case 'boolean':
     case 'null':
       return [];
     case 'select':
-      // TODO
+      return [expr];
   }
 }
 

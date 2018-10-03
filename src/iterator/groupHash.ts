@@ -3,7 +3,7 @@ import { Row } from '../row';
 import RowIterator from './type';
 import Aggregate from '../aggregate/type';
 import AggregateTypes from '../aggregate';
-import compileExpression, { getAggrName } from '../expression';
+import compileExpression, { getAggrName } from '../expression/compile';
 import hashCode from '../util/hashCode';
 
 export default class GroupHashIterator implements RowIterator {
