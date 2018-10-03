@@ -1,22 +1,9 @@
-import parse, { Expression, OrderByRef } from 'yasqlp';
-
 import InputIterator from '../../../iterator/input';
 import MergeJoinIterator from '../../../iterator/join/merge';
 import RowIterator from '../../../iterator/type';
 
 import drainIterator from '../../../util/drainIterator';
-
-function getWhere(code: string): Expression {
-  let stmt = parse(code)[0];
-  if (stmt.type === 'select') return stmt.where;
-  throw new Error('Given statement is not select statement');
-}
-
-function getOrderBy(code: string): OrderByRef[] {
-  let stmt = parse(code)[0];
-  if (stmt.type === 'select') return stmt.order;
-  throw new Error('Given statement is not select statement');
-}
+import { getWhere, getOrderBy } from '../../../util/select';
 
 describe('MergeJoinIterator', () => {
   let iter: RowIterator;

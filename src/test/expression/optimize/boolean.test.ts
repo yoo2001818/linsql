@@ -1,12 +1,5 @@
-import parse, { Expression } from 'yasqlp';
-
 import { rewriteNot, rewriteBetweenIn } from '../../../expression/optimize/boolean';
-
-function getWhere(code: string): Expression {
-  let stmt = parse(code)[0];
-  if (stmt.type === 'select') return stmt.where;
-  throw new Error('Given statement is not select statement');
-}
+import { getWhere } from '../../../util/select';
 
 describe('rewriteNot', () => {
   it('should run simple cases', () => {

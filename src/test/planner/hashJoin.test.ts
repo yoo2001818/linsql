@@ -1,11 +1,6 @@
-import parse, { Statement, Expression } from 'yasqlp';
 import planHashJoin from '../../planner/hashJoin';
 
-function getWhere(code: string): Expression {
-  let stmt = parse(code)[0];
-  if (stmt.type === 'select') return stmt.where;
-  throw new Error('Given statement is not select statement');
-}
+import { getWhere } from '../../util/select';
 
 describe('hashJoinPlanner', () => {
   it('should handle simple cases', () => {

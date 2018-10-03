@@ -1,22 +1,9 @@
-import parse, { Expression, OrderByRef } from 'yasqlp';
-
 import InputIterator from '../../iterator/input';
 import GroupHashIterator from '../../iterator/groupHash';
 import RowIterator from '../../iterator/type';
 
 import drainIterator from '../../util/drainIterator';
-
-function getColumns(code: string): Expression[] {
-  let stmt = parse(code)[0];
-  if (stmt.type === 'select') return stmt.columns.map(v => v.value);
-  throw new Error('Given statement is not select statement');
-}
-
-function getOrderBy(code: string): OrderByRef[] {
-  let stmt = parse(code)[0];
-  if (stmt.type === 'select') return stmt.order;
-  throw new Error('Given statement is not select statement');
-}
+import { getColumns, getOrderBy } from '../../util/select';
 
 describe('GroupHashIterator', () => {
   let iterInput: RowIterator;
@@ -40,8 +27,8 @@ describe('GroupHashIterator', () => {
   it('should run group by correctly', async () => {
     const aggrName = 'sum-row[\'table\'][\'amount\']';
     iter = new GroupHashIterator(iterInput,
-      getColumns('SELECT table.userId;'),
-      getColumns('SELECT SUM(table.amount);'),
+      getColumns('SELECT table.userId;').map(v => v.value),
+      getColumns('SELECT SUM(table.amount);').map(v => v.value),
     );
     expect(await drainIterator(iter)).toEqual([
       { table: { userId: 1, amount: 1000 }, _aggr: { [aggrName]: 15000 } },
@@ -53,8 +40,8 @@ describe('GroupHashIterator', () => {
   it('should run group by correctly (count)', async () => {
     const aggrName = 'count-row[\'table\'][\'amount\']';
     iter = new GroupHashIterator(iterInput,
-      getColumns('SELECT table.userId;'),
-      getColumns('SELECT COUNT(table.amount);'),
+      getColumns('SELECT table.userId;').map(v => v.value),
+      getColumns('SELECT COUNT(table.amount);').map(v => v.value),
     );
     expect(await drainIterator(iter)).toEqual([
       { table: { userId: 1, amount: 1000 }, _aggr: { [aggrName]: 5 } },
@@ -66,8 +53,8 @@ describe('GroupHashIterator', () => {
   it('should run group by correctly (min)', async () => {
     const aggrName = 'min-row[\'table\'][\'amount\']';
     iter = new GroupHashIterator(iterInput,
-      getColumns('SELECT table.userId;'),
-      getColumns('SELECT MIN(table.amount);'),
+      getColumns('SELECT table.userId;').map(v => v.value),
+      getColumns('SELECT MIN(table.amount);').map(v => v.value),
     );
     expect(await drainIterator(iter)).toEqual([
       { table: { userId: 1, amount: 1000 }, _aggr: { [aggrName]: 1000 } },
@@ -79,8 +66,8 @@ describe('GroupHashIterator', () => {
   it('should run group by correctly (max)', async () => {
     const aggrName = 'max-row[\'table\'][\'amount\']';
     iter = new GroupHashIterator(iterInput,
-      getColumns('SELECT table.userId;'),
-      getColumns('SELECT MAX(table.amount);'),
+      getColumns('SELECT table.userId;').map(v => v.value),
+      getColumns('SELECT MAX(table.amount);').map(v => v.value),
     );
     expect(await drainIterator(iter)).toEqual([
       { table: { userId: 1, amount: 1000 }, _aggr: { [aggrName]: 5000 } },
@@ -92,8 +79,8 @@ describe('GroupHashIterator', () => {
   it('should be rewindable', async () => {
     const aggrName = 'sum-row[\'table\'][\'amount\']';
     iter = new GroupHashIterator(iterInput,
-      getColumns('SELECT table.userId;'),
-      getColumns('SELECT SUM(table.amount);'),
+      getColumns('SELECT table.userId;').map(v => v.value),
+      getColumns('SELECT SUM(table.amount);').map(v => v.value),
     );
     await drainIterator(iter);
     iter.rewind();
@@ -108,8 +95,8 @@ describe('GroupHashIterator', () => {
     const aggrName = 'sum-(row[\'table\'][\'amount\']+' +
       'parent[\'parent\'][\'x\'])';
     iter = new GroupHashIterator(iterInput,
-      getColumns('SELECT table.userId;'),
-      getColumns('SELECT SUM(table.amount + parent.x);'),
+      getColumns('SELECT table.userId;').map(v => v.value),
+      getColumns('SELECT SUM(table.amount + parent.x);').map(v => v.value),
     );
     iter.rewind({ parent: { x: 0 } });
     expect(await drainIterator(iter)).toEqual([
@@ -128,8 +115,8 @@ describe('GroupHashIterator', () => {
   });
   it('should return order if specified', async () => {
     iter = new GroupHashIterator(iterInput,
-      getColumns('SELECT table.userId;'),
-      getColumns('SELECT SUM(table.amount);'),
+      getColumns('SELECT table.userId;').map(v => v.value),
+      getColumns('SELECT SUM(table.amount);').map(v => v.value),
     );
     expect(iter.getOrder()).toEqual(
       getOrderBy('SELECT 1 ORDER BY table.userId;'));

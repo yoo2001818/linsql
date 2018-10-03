@@ -1,16 +1,9 @@
-import parse, { OrderByRef } from 'yasqlp';
-
 import InputIterator from '../../iterator/input';
 import SortIterator from '../../iterator/sort';
 import RowIterator from '../../iterator/type';
 
 import drainIterator from '../../util/drainIterator';
-
-function getOrderBy(code: string): OrderByRef[] {
-  let stmt = parse(code)[0];
-  if (stmt.type === 'select') return stmt.order;
-  throw new Error('Given statement is not select statement');
-}
+import { getOrderBy } from '../../util/select';
 
 describe('SortIterator', () => {
   let iterInput: RowIterator;

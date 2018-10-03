@@ -1,23 +1,10 @@
-import parse, { SelectColumn, OrderByRef } from 'yasqlp';
-
 import InputIterator from '../../iterator/input';
 import MapIterator from '../../iterator/map';
 import OutputIterator from '../../iterator/output';
 import RowIterator from '../../iterator/type';
 
 import drainIterator from '../../util/drainIterator';
-
-function getColumns(code: string): SelectColumn[] {
-  let stmt = parse(code)[0];
-  if (stmt.type === 'select') return stmt.columns;
-  throw new Error('Given statement is not select statement');
-}
-
-function getOrderBy(code: string): OrderByRef[] {
-  let stmt = parse(code)[0];
-  if (stmt.type === 'select') return stmt.order;
-  throw new Error('Given statement is not select statement');
-}
+import { getColumns, getOrderBy } from '../../util/select';
 
 describe('MapIterator', () => {
   let iterInput: RowIterator;

@@ -1,11 +1,5 @@
-import parse, { Statement, Expression } from 'yasqlp';
 import { getCode } from '../../expression/compile';
-
-function getWhere(code: string): Expression {
-  let stmt = parse(code)[0];
-  if (stmt.type === 'select') return stmt.where;
-  throw new Error('Given statement is not select statement');
-}
+import { getWhere } from '../../util/select';
 
 function unindent(input: TemplateStringsArray) {
   return input.join('\n').split('\n').map(v => v.trim()).join('\n');
