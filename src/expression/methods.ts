@@ -22,6 +22,7 @@ const TABLE: { [key: string]: Function } = {
   rand: () => Math.random(),
   greatest: (...args: number[]) => Math.max.apply(Math, args),
   least: (...args: number[]) => Math.min.apply(Math, args),
+  coalesce: (...args: any[]) => args.find(v => v != null),
 };
 
 export default TABLE;

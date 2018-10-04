@@ -1,6 +1,6 @@
 import { Expression } from 'yasqlp';
 
-import { rewrite } from '../traverse';
+import { rewrite, rewritePostOrder } from '../traverse';
 import { isConstant, rotateCompareOp } from '../op';
 
 // Algebra / compare logic optimizer
@@ -26,6 +26,38 @@ export function rewriteCompareColumn(expr: Expression) {
     }
     return { expr, state };
   });
+}
+
+function isValue(expr: Expression) {
+  return ['string', 'number', 'boolean', 'null'].includes(expr.type);
+}
+
+function rewriteStep(expr: Expression) {
+  return rewritePostOrder(expr, (expr) => {
+    switch (expr.type) {
+      case 'logical':
+      case 'unary':
+      case 'compare':
+      case 'between':
+      case 'in':
+      case 'binary':
+      case 'function':
+      case 'case':
+      case 'custom':
+      case 'aggregation':
+      case 'exists':
+      case 'select':
+      case 'string':
+      case 'number':
+      case 'boolean':
+      case 'wildcard':
+      case 'default':
+      case 'null':
+      case 'column':
+      default:
+        return expr;
+    }
+  }); 
 }
 
 /**

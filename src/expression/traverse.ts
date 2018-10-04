@@ -2,102 +2,91 @@ import { Expression } from 'yasqlp';
 
 import { AndGraphExpression } from './optimize/graph';
 
-/**
- * Rewrites the whole expression tree by recursively descending tree with
- * mapper function.
- */
-export function rewrite<T>(
-  expr: Expression, state: T,
-  mapper: (expr: Expression, state: T) => { expr: Expression, state: T },
-): Expression {
-  if (expr == null) return expr;
-  let { expr: newExpr, state: newState } = mapper(expr, state);
-  switch (newExpr.type) {
+function traverseStep(expr: Expression, map: (expr: Expression) => Expression) {
+ switch (expr.type) {
     case 'logical': {
-      let values = newExpr.values.map(v => rewrite(v, newState, mapper));
-      if (newExpr.values.some((v, i) => v !== values[i])) {
-        return { ...newExpr, values };
+      let values = expr.values.map(map);
+      if (expr.values.some((v, i) => v !== values[i])) {
+        return { ...expr, values };
       }
-      return newExpr;
+      return expr;
     }
     case 'unary': {
-      let value = rewrite(newExpr.value, newState, mapper);
-      if (value !== newExpr.value) {
-        return { ...newExpr, value };
+      let value = map(expr.value);
+      if (value !== expr.value) {
+        return { ...expr, value };
       }
-      return newExpr;
+      return expr;
     }
     case 'compare': {
-      let left = rewrite(newExpr.left, newState, mapper);
-      let right = rewrite(newExpr.right, newState, mapper);
-      if (left !== newExpr.left || right !== newExpr.right) {
-        return { ...newExpr, left, right };
+      let left = map(expr.left);
+      let right = map(expr.right);
+      if (left !== expr.left || right !== expr.right) {
+        return { ...expr, left, right };
       }
-      return newExpr;
+      return expr;
     }
     case 'between': {
-      let min = rewrite(newExpr.min, newState, mapper);
-      let max = rewrite(newExpr.max, newState, mapper);
-      let target = rewrite(newExpr.target, newState, mapper);
+      let min = map(expr.min);
+      let max = map(expr.max);
+      let target = map(expr.target);
       if (
-        min !== newExpr.min || max !== newExpr.max || target !== newExpr.target
+        min !== expr.min || max !== expr.max || target !== expr.target
       ) {
-        return { ...newExpr, min, max, target };
+        return { ...expr, min, max, target };
       }
-      return newExpr;
+      return expr;
     }
     case 'in': {
       // TODO Handle in
-      // let values = newExpr.values.map(v => rewrite(v, newState, mapper));
-      let target = rewrite(newExpr.target, newState, mapper);
-      if (target !== newExpr.target) {
-        return { ...newExpr, target };
+      // let values = expr.values.map(v => rewrite(v, newState, mapper));
+      let target = map(expr.target);
+      if (target !== expr.target) {
+        return { ...expr, target };
       }
-      return newExpr;
+      return expr;
     }
     case 'binary': {
-      let left = rewrite(newExpr.left, newState, mapper);
-      let right = rewrite(newExpr.right, newState, mapper);
-      if (left !== newExpr.left || right !== newExpr.right) {
-        return { ...newExpr, left, right };
+      let left = map(expr.left);
+      let right = map(expr.right);
+      if (left !== expr.left || right !== expr.right) {
+        return { ...expr, left, right };
       }
-      return newExpr;
+      return expr;
     }
     case 'function': {
-      let args = newExpr.args.map(v => rewrite(v, newState, mapper));
-      if (newExpr.args.some((v, i) => v !== args[i])) {
-        return { ...newExpr, args };
+      let args = expr.args.map(map);
+      if (expr.args.some((v, i) => v !== args[i])) {
+        return { ...expr, args };
       }
-      return newExpr;
+      return expr;
     }
     case 'case': {
-      let value = rewrite(newExpr.value, newState, mapper);
-      let elseVal = rewrite(newExpr.else, newState, mapper);
-      let matches = newExpr.matches.map(entry => {
-        let query = rewrite(entry.query, newState, mapper);
-        let value = rewrite(entry.value, newState, mapper);
+      let value = map(expr.value);
+      let elseVal = map(expr.else);
+      let matches = expr.matches.map(entry => {
+        let query = map(entry.query);
+        let value = map(entry.value);
         if (query !== entry.query || value !== entry.value) {
           return { query, value };
         }
         return entry;
       });
-      if (newExpr.matches.some((v, i) => v !== matches[i]) ||
-        value !== newExpr.value || elseVal !== newExpr.else
+      if (expr.matches.some((v, i) => v !== matches[i]) ||
+        value !== expr.value || elseVal !== expr.else
       ) {
-        return { ...newExpr, value, matches, else: elseVal };
+        return { ...expr, value, matches, else: elseVal };
       }
-      return newExpr;
+      return expr;
     }
     case 'custom': {
-      if (newExpr.customType === 'andGraph') {
-        let andGraph = newExpr as AndGraphExpression;
-        let leftovers = andGraph.leftovers.map(
-          v => rewrite(v, newState, mapper));
+      if (expr.customType === 'andGraph') {
+        let andGraph = expr as AndGraphExpression;
+        let leftovers = andGraph.leftovers.map(map);
         let nodes = andGraph.nodes.map(node => {
           if (node == null) return node;
-          let names = node.names.map(v => rewrite(v, newState, mapper));
-          let constraints = node.constraints.map(
-            constraint => rewrite(constraint, newState, mapper));
+          let names = node.names.map(map);
+          let constraints = node.constraints.map(map);
           if (node.names.some((v, i) => v !== names[i]) ||
             node.constraints.some((v, i) => v !== constraints[i])
           ) {
@@ -126,6 +115,33 @@ export function rewrite<T>(
     case 'null':
     */
     default:
-      return newExpr;
+      return expr;
   }
+}
+
+/**
+ * Rewrites the whole expression tree by recursively descending tree with
+ * mapper function.
+ * This traverses the tree in pre-order.
+ */
+export function rewrite<T>(
+  expr: Expression, state: T,
+  mapper: (expr: Expression, state: T) => { expr: Expression, state: T },
+): Expression {
+  if (expr == null) return expr;
+  let { expr: newExpr, state: newState } = mapper(expr, state);
+  return traverseStep(newExpr, expr => rewrite(expr, newState, mapper));
+}
+
+/**
+ * Rewrites the whole expression tree by recursively descending tree with
+ * mapper function.
+ * This traverses the tree in post-order.
+ */
+export function rewritePostOrder<T>(
+  expr: Expression,
+  mapper: (expr: Expression) => Expression,
+): Expression {
+  let newExpr = traverseStep(expr, expr => rewritePostOrder(expr, mapper));
+  return mapper(newExpr);
 }
