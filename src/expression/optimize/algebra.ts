@@ -2,6 +2,7 @@ import { Expression } from 'yasqlp';
 
 import { rewrite, rewritePostOrder } from '../traverse';
 import { isConstant, rotateCompareOp } from '../op';
+import evaluate from '../evaluate';
 
 // Algebra / compare logic optimizer
 
@@ -32,31 +33,65 @@ function isValue(expr: Expression) {
   return ['string', 'number', 'boolean', 'null'].includes(expr.type);
 }
 
-function rewriteStep(expr: Expression) {
+function valueToExpr(value: any): Expression {
+  if (typeof value === 'string') {
+    return { type: 'string', value };
+  } else if (typeof value === 'number') {
+    return { type: 'number', value };
+  } else if (typeof value === 'boolean') {
+    return { type: 'boolean', value };
+  } else {
+    return { type: 'null' };
+  }
+}
+
+function canEvaluate(expr: Expression) {
+  switch (expr.type) {
+    case 'logical':
+      return expr.values.every(v => isValue(v));
+    case 'unary':
+      return isValue(expr.value);
+    case 'compare':
+      return isValue(expr.left) && isValue(expr.right);
+    case 'between':
+      return isValue(expr.min) && isValue(expr.max) && isValue(expr.target);
+    case 'in':
+      return isValue(expr.target) && expr.values.type === 'list' &&
+        expr.values.values.every(v => isValue(v));
+    case 'binary':
+      return isValue(expr.left) && isValue(expr.right);
+    case 'function':
+      return expr.args.every(v => isValue(v));
+    case 'case':
+      // TODO
+    case 'custom':
+      // TODO
+    case 'aggregation':
+      return false;
+    case 'exists':
+      return false;
+    case 'select':
+      return false;
+    case 'wildcard':
+    case 'default':
+    case 'column':
+      return false;
+    case 'string':
+    case 'number':
+    case 'boolean':
+    case 'null':
+      return true;
+    default:
+      return true;
+  }
+}
+
+export function rewriteConstant(expr: Expression) {
   return rewritePostOrder(expr, (expr) => {
-    switch (expr.type) {
-      case 'logical':
-      case 'unary':
-      case 'compare':
-      case 'between':
-      case 'in':
-      case 'binary':
-      case 'function':
-      case 'case':
-      case 'custom':
-      case 'aggregation':
-      case 'exists':
-      case 'select':
-      case 'string':
-      case 'number':
-      case 'boolean':
-      case 'wildcard':
-      case 'default':
-      case 'null':
-      case 'column':
-      default:
-        return expr;
+    if (canEvaluate(expr)) {
+      return evaluate(expr);
     }
+    return expr;
   }); 
 }
 
