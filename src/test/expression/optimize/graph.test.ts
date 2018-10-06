@@ -1,5 +1,3 @@
-import parse, { Expression } from 'yasqlp';
-
 import rewriteGraph from '../../../expression/optimize/graph';
 import { getWhere, getColumn } from '../../../util/select';
 

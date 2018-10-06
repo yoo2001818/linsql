@@ -89,7 +89,7 @@ function canEvaluate(expr: Expression) {
 export function rewriteConstant(expr: Expression) {
   return rewritePostOrder(expr, (expr) => {
     if (canEvaluate(expr)) {
-      return evaluate(expr);
+      return valueToExpr(evaluate(expr));
     }
     return expr;
   }); 
