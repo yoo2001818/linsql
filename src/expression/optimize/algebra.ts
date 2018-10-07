@@ -187,6 +187,25 @@ export function rewriteConstant(expr: Expression): Expression {
     }
     // If the expression is an identity function, remove it.
     let identExpr = rewriteIdentity(expr);
+    // If the expression can be collapsed, e.g.
+    // - a * 3 + a * 1 -> a * 4
+    // - 6 * 3 + a * 3 + 4 * 5 -> 38 + a * 3
+    // - a - a -> 0
+    // - a + a -> 2 * a
+    // we need to collapse it. This can be tricky, and binary expressions only
+    // having left and right nodes doesn't help at all. (we need to group them
+    // in here)
+    // Basically, this boils down to:
+    // - Grouping expressions to single operator with list of values,
+    //   to reorder them inside.
+    //   - Converting - and / to 1 + (-1) and 3 * (1 / 3).
+    //   - Recursively fetching all child values.
+    // - Grouping all constants and merging them to one.
+    // - Merging and factoring all non-constants (use hash codes to distinguish
+    //   them.)
+    //   - (a [* /] 3) [+ -] a
+    //   - (a [* /] 3) [+ -] (a [* /] 1)
+    //   - a [+ -] a
     return identExpr;
   }); 
 }
