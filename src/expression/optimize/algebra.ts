@@ -1,8 +1,8 @@
-import { Expression } from 'yasqlp';
+import { Expression, BinaryExpression } from 'yasqlp';
 
 import { rewrite, rewritePostOrder } from '../traverse';
 import { isConstant, rotateCompareOp } from '../op';
-import evaluate from '../evaluate';
+import evaluate, { castBool } from '../evaluate';
 
 // Algebra / compare logic optimizer
 
@@ -86,12 +86,108 @@ function canEvaluate(expr: Expression) {
   }
 }
 
-export function rewriteConstant(expr: Expression) {
+function castExprToBool(expr: Expression, defaultValue: boolean) {
+  switch (expr.type) {
+    case 'null':
+      return false;
+    case 'boolean':
+    case 'number':
+    case 'string':
+      return castBool(expr.value);
+    default:
+      return defaultValue;
+  }
+}
+
+function extractIdentity(
+  expr: BinaryExpression, check: (value: Expression) => boolean,
+) {
+  if (check(expr.left)) {
+    return expr.right;
+  } else if (check(expr.right)) {
+    return expr.left;
+  } else {
+    return null;
+  }
+}
+
+/**
+ * Rewrites identity expressions so it can be simplified.
+ * @param expr The expression to remove identity functions.
+ */
+export function rewriteIdentity(expr: Expression): Expression {
+  if (expr.type === 'binary') {
+    switch (expr.op) {
+      case '+':
+      case '-':
+      case '^': {
+        let extracted = extractIdentity(expr,
+          v => v.type === 'number' && v.value === 0);
+        if (extracted != null) return extracted;
+        return expr;
+      }
+      case '*': {
+        let extracted = extractIdentity(expr,
+          v => v.type === 'number' && v.value === 1);
+        if (extracted != null) return extracted;
+        let extractedMinus = extractIdentity(expr,
+          v => v.type === 'number' && v.value === -1);
+        if (extractedMinus != null) {
+          return { type: 'unary', op: '-', value: extractedMinus };
+        }
+        let extractedZero = extractIdentity(expr,
+          v => v.type === 'number' && v.value === 0);
+        if (extractedZero != null) return { type: 'number', value: 0 };
+        return expr;
+      }
+      case '/': {
+        if (expr.left.type === 'number' && expr.left.value === 0) {
+          // TODO NaN check
+          return expr.left;
+        } else if (expr.right.type === 'number' && expr.right.value === 1) {
+          return expr.left;
+        } else if (expr.right.type === 'number' && expr.right.value === -1) {
+          return { type: 'unary', op: '-', value: expr.left };
+        } else {
+          return expr;
+        }
+      }
+    }
+  } else if (expr.type === 'logical') {
+    // For AND, remove all TRUE and convert itself to FALSE if FALSE is detected
+    // For OR, remove all FALSE and convert itself to TRUE if TRUE is detected.
+    switch (expr.op) {
+      case '&&': {
+        let hasFalse = expr.values.find(v => 
+          !castExprToBool(v, true));
+        if (hasFalse) return hasFalse;
+        let newValues = expr.values.filter(v => !castExprToBool(v, false));
+        if (newValues.length === 1) return newValues[0];
+        if (newValues.length === 0) return { type: 'boolean', value: true };
+        return { ...expr, values: newValues };
+      }
+      case '||': {
+        let hasTrue = expr.values.find(v => castExprToBool(v, false));
+        if (hasTrue) return hasTrue;
+        let newValues = expr.values.filter(v => castExprToBool(v, true));
+        if (newValues.length === 1) return newValues[0];
+        if (newValues.length === 0) return { type: 'boolean', value: false };
+        return { ...expr, values: newValues };
+      }
+    }
+  }
+  return expr;
+}
+
+export function rewriteConstant(expr: Expression): Expression {
   return rewritePostOrder(expr, (expr) => {
+    // If the given expression is constant, just evaluate it right away.
     if (canEvaluate(expr)) {
       return valueToExpr(evaluate(expr));
     }
-    return expr;
+    // If the expression is an identity function, remove it.
+    let identExpr = rewriteIdentity(expr);
+    return identExpr;
   }); 
 }
 

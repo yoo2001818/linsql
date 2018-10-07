@@ -4,7 +4,7 @@ import methods from './methods';
 import { Row } from '../row';
 import { AndGraphExpression } from './optimize/graph';
 
-function castString(value: any): string | null {
+export function castString(value: any): string | null {
   if (value == null) {
     return null;
   } else {
@@ -12,7 +12,7 @@ function castString(value: any): string | null {
   }
 }
 
-function castNumber(value: any): number | null {
+export function castNumber(value: any): number | null {
   if (value == null) {
     return null;
   } else if (typeof value === 'number') {
@@ -24,7 +24,7 @@ function castNumber(value: any): number | null {
   }
 }
 
-function castBool(value: any): boolean | null {
+export function castBool(value: any): boolean | null {
   if (value == null) {
     return null;
   } else if (typeof value === 'boolean') {
@@ -36,7 +36,7 @@ function castBool(value: any): boolean | null {
   }
 }
 
-function compareEq(left: any, right: any): boolean | null {
+export function compareEq(left: any, right: any): boolean | null {
   if (left == null || right == null) {
     return null;
   } else if (left === right) {
