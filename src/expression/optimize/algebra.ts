@@ -179,6 +179,53 @@ export function rewriteIdentity(expr: Expression): Expression {
   return expr;
 }
 
+export function rewriteCollapse(expr: Expression): Expression {
+  // TODO
+  return expr;
+}
+
+export function rewriteExpand(expr: Expression): Expression {
+  // If the expression can be expanded, expand it.
+  // Expansion is only possible for * and / operators, that has bunch of
+  // + and - operators.
+  // Since * and /, + and - has to be groupped for this stage too
+  // (we need to determine if it's possible for multiple operators),
+  // expansion and collapsing should be done at the same time.
+  // (a + 3) * 5 * 2 -> (* (+ a 3) 5 2) -> (+ (* a 5 2) (* 3 5 2))
+  // (a + 3) * b * c -> a * b * c + 3 * b * c
+  if (expr.type !== 'binary') return expr;
+  if (!['*', '/'].includes(expr.op)) return expr;
+  // *: Either left or right can be + or -, and it can be repetitively done.
+  // /: Only left can be + or -.
+  let leftAdd = expr.left.type === 'binary' &&
+    ['+', '-'].includes(expr.left.op);
+  let rightAdd = expr.right.type === 'binary' &&
+    ['+', '-'].includes(expr.right.op);
+  if (leftAdd === rightAdd) return expr;
+  if (expr.op === '/' && rightAdd) return expr;
+  let binaryTarget = leftAdd ? expr.left : expr.right;
+  let unaryTarget = leftAdd ? expr.right : expr.left;
+  // TODO Remove unnecessary assertion
+  if (binaryTarget.type !== 'binary') return expr;
+  // TODO Handle / and -
+  return {
+    type: 'binary',
+    op: binaryTarget.op,
+    left: rewriteExpand({
+      type: 'binary',
+      op: expr.op,
+      left: binaryTarget.left,
+      right: unaryTarget,
+    }),
+    right: rewriteExpand({
+      type: 'binary',
+      op: expr.op,
+      left: binaryTarget.right,
+      right: unaryTarget,
+    }),
+  };
+}
+
 export function rewriteConstant(expr: Expression): Expression {
   return rewritePostOrder(expr, (expr) => {
     // If the given expression is constant, just evaluate it right away.
@@ -187,6 +234,9 @@ export function rewriteConstant(expr: Expression): Expression {
     }
     // If the expression is an identity function, remove it.
     let identExpr = rewriteIdentity(expr);
+    // If the expression can be expanded and it is beneificial to do so,
+    // expand them using distributive property.
+    // - (a + 3) * 5 -> a * 5 + 15
     // If the expression can be collapsed, e.g.
     // - a * 3 + a * 1 -> a * 4
     // - 6 * 3 + a * 3 + 4 * 5 -> 38 + a * 3
