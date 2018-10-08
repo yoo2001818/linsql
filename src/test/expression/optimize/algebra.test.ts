@@ -60,13 +60,13 @@ describe('rewriteConstant', () => {
     expect(rewriteConstant(getColumn('SELECT 6 = 3;')))
       .toEqual(getColumn('SELECT FALSE;'));
   });
-  it('should handle logical operators', () => {
+  it('should handle short-circuit logical operators', () => {
     expect(rewriteConstant(getColumn('SELECT 5 IS NULL AND a.a = 2;')))
       .toEqual(getColumn('SELECT FALSE;'));
     expect(rewriteConstant(getColumn('SELECT (2 + 4 = 6 AND TRUE) OR a.c;')))
       .toEqual(getColumn('SELECT TRUE;'));
   });
-  it('should trim logical operators operators', () => {
+  it('should trim logical operators trivial expressions', () => {
     expect(rewriteConstant(getColumn('SELECT b = 3 AND 3 = 3;')))
       .toEqual(getColumn('SELECT b = 3;'));
     expect(rewriteConstant(getColumn('SELECT TRUE AND a.c = 3 AND a.b = 4;')))
@@ -79,4 +79,20 @@ describe('rewriteConstant', () => {
     expect(rewriteConstant(getColumn('SELECT NULL AND a.b = 3;')))
       .toEqual(getColumn('SELECT NULL;'));
   });
+  it('should expand expandable expressions', () => {
+    expect(rewriteConstant(getColumn('SELECT (a + 5) * 2;')))
+      .toEqual(getColumn('SELECT a * 2 + 10;'));
+    expect(rewriteConstant(getColumn('SELECT 3 * (a - 2);')))
+      .toEqual(getColumn('SELECT a * 3 - 6;'));
+    expect(rewriteConstant(getColumn('SELECT (a + 5) * 2 * 3;')))
+      .toEqual(getColumn('SELECT a * 2 * 3 + 30;'));
+    expect(rewriteConstant(getColumn('SELECT (a - b) / 3;')))
+      .toEqual(getColumn('SELECT a / 3 - b / 3;'));
+    expect(rewriteConstant(getColumn('SELECT 3 / (a - b);')))
+      .toEqual(getColumn('SELECT 3 / (a - b);'));
+    expect(rewriteConstant(getColumn('SELECT 2 * (a + 5) * 3;')))
+      .toEqual(getColumn('SELECT a * 2 * 3 + 30;'));
+    expect(rewriteConstant(getColumn('SELECT ((a + 5) * 2 + b * 5) * 10;')))
+      .toEqual(getColumn('SELECT a * 2 * 10 + 100 + b * 5 * 10;'));
+  })
 });

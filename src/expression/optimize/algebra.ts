@@ -179,6 +179,16 @@ export function rewriteIdentity(expr: Expression): Expression {
   return expr;
 }
 
+// This is expected to run when the value has a possiblity to be changed to have
+// evaluatable portion.
+export function rewriteEvaluate(expr: Expression): Expression {
+  // If the given expression is constant, just evaluate it right away.
+  if (canEvaluate(expr)) {
+    return valueToExpr(evaluate(expr));
+  }
+  return expr;
+}
+
 export function rewriteCollapse(expr: Expression): Expression {
   // TODO
   return expr;
@@ -207,22 +217,21 @@ export function rewriteExpand(expr: Expression): Expression {
   let unaryTarget = leftAdd ? expr.right : expr.left;
   // TODO Remove unnecessary assertion
   if (binaryTarget.type !== 'binary') return expr;
-  // TODO Handle / and -
   return {
     type: 'binary',
     op: binaryTarget.op,
-    left: rewriteExpand({
+    left: rewriteIdentity(rewriteExpand(rewriteEvaluate({
       type: 'binary',
       op: expr.op,
       left: binaryTarget.left,
       right: unaryTarget,
-    }),
-    right: rewriteExpand({
+    }))),
+    right: rewriteIdentity(rewriteExpand(rewriteEvaluate({
       type: 'binary',
       op: expr.op,
       left: binaryTarget.right,
       right: unaryTarget,
-    }),
+    }))),
   };
 }
 
@@ -237,6 +246,7 @@ export function rewriteConstant(expr: Expression): Expression {
     // If the expression can be expanded and it is beneificial to do so,
     // expand them using distributive property.
     // - (a + 3) * 5 -> a * 5 + 15
+    let expandExpr = rewriteExpand(identExpr);
     // If the expression can be collapsed, e.g.
     // - a * 3 + a * 1 -> a * 4
     // - 6 * 3 + a * 3 + 4 * 5 -> 38 + a * 3
@@ -256,7 +266,7 @@ export function rewriteConstant(expr: Expression): Expression {
     //   - (a [* /] 3) [+ -] a
     //   - (a [* /] 3) [+ -] (a [* /] 1)
     //   - a [+ -] a
-    return identExpr;
+    return expandExpr;
   }); 
 }
 
