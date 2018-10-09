@@ -189,8 +189,35 @@ export function rewriteEvaluate(expr: Expression): Expression {
   return expr;
 }
 
+export function extractBinaryExpr(
+  expr: BinaryExpression, allowedOp: BinaryExpression['op'][],
+): { op: BinaryExpression['op'], expr: Expression }[] {
+  if (!allowedOp.includes(expr.op)) return [];
+}
+
 export function rewriteCollapse(expr: Expression): Expression {
-  // TODO
+  // This should distinguish constant / columns and collapse them in the
+  // same arithmetic operators.
+  // (a * 5) * 2 -> a * 10
+  // a * 5 + 3 + a * 2 + b * 3 + 4 + a * b * 2 -> a * 7 + b * 3 + a * b * 2 + 7
+  // a + b - a + b + 3 + 7 -> 2 * b + 10
+  // As you can see, if multiple columns appears, they should be distinguished
+  // from each other (a, b, a * b), and they should be collapsed if
+  // they appear multiple times.
+  // Note that a * b and b * a treated differently as column - it should be
+  // rearranged before reaching this function.
+  // Constants are extracted and collapsed and put in the back.
+  // This only applies for + or - having * or -, however.
+  if (expr.type !== 'binary') return expr;
+  // * and /'s columns can't be collapsed, but they can still be collapsed
+  // when they use constants.
+  // First, extract all expressions inside same level. This requires recursively
+  // walking into the expression.
+  // Note that while (1 + 2) + 3 = 1 + (2 + 3), but (1 - 2) - 3 != 1 - (2 - 3).
+  // We MUST take this into account while extracting. Well, it can be easily
+  // solved by wrapping them by unary operators, so 1 - 2 becomes 1 + (-2).
+  // This applies same to /. 1 / 2 becomes 1 * (1 / 2).
+  // a / (b * c * d) becomes a * (1 / b) * (1 / c) * (1 / d).
   return expr;
 }
 
