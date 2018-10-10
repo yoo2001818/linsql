@@ -190,11 +190,58 @@ export function rewriteEvaluate(expr: Expression): Expression {
 }
 
 export function extractBinaryExpr(
-  expr: BinaryExpression, allowedOp: BinaryExpression['op'][],
-): { op: BinaryExpression['op'], expr: Expression }[] {
-  if (!allowedOp.includes(expr.op)) return [];
+  expr: BinaryExpression,
+  normalOp: BinaryExpression['op'],
+  invertedOp: BinaryExpression['op'],
+) {
+  let result: { inverted: boolean, expr: Expression }[] = [];
+  function step(expr: Expression, inverted: boolean): void {
+    if (expr.type !== 'binary') return;
+    if (expr.op === normalOp) {
+      result.push({ inverted, expr: expr.left });
+      result.push({ inverted, expr: expr.right });
+      step(expr.left, inverted);
+      return step(expr.right, inverted);
+    } else if (expr.op === invertedOp) {
+      result.push({ inverted, expr: expr.left });
+      result.push({ inverted: !inverted, expr: expr.right });
+      step(expr.left, !inverted);
+      return step(expr.right, !inverted);
+    }
+  }
+  step(expr, false);
+  return result;
 }
 
+export function generateBinaryExpr(
+  list: { inverted: boolean, expr: Expression }[],
+  normalOp: BinaryExpression['op'],
+  invertedOp: BinaryExpression['op'],
+): Expression {
+  return list.reduce((left: Expression, { inverted, expr }): Expression => {
+    if (left == null) {
+      if (!inverted) return expr;
+      if (invertedOp === '/') {
+        return {
+          type: 'binary', op: '/', left: valueToExpr(1), right: expr,
+        };
+      } else if (invertedOp === '-') {
+        return {
+          type: 'unary', op: '-', value: expr,
+        };
+      }
+    }
+    return {
+      type: 'binary',
+      op: inverted ? invertedOp : normalOp,
+      left,
+      right: expr,
+    };
+  }, null);
+}
+
+// TODO This will be run repeatedly for each expression; There should be some
+// kind of cutoff? that prohibits this behavior.
 export function rewriteCollapse(expr: Expression): Expression {
   // This should distinguish constant / columns and collapse them in the
   // same arithmetic operators.
@@ -218,6 +265,20 @@ export function rewriteCollapse(expr: Expression): Expression {
   // solved by wrapping them by unary operators, so 1 - 2 becomes 1 + (-2).
   // This applies same to /. 1 / 2 becomes 1 * (1 / 2).
   // a / (b * c * d) becomes a * (1 / b) * (1 / c) * (1 / d).
+  if (expr.op === '*' || expr.op === '/') {
+    let values = extractBinaryExpr(expr, '*', '/');
+    let constants = values.filter(v => canEvaluate(v.expr));
+    let nonConstants = values.filter(v => !canEvaluate(v.expr));
+    let constantsExpr = evaluate(generateBinaryExpr(constants, '*', '/'));
+    return generateBinaryExpr(nonConstants.concat([constantsExpr]), '*', '/');
+  } else if (expr.op === '+' || expr.op === '-') {
+    let values = extractBinaryExpr(expr, '+', '-');
+    // TODO Handle factoring
+    let constants = values.filter(v => canEvaluate(v.expr));
+    let nonConstants = values.filter(v => !canEvaluate(v.expr));
+    let constantsExpr = evaluate(generateBinaryExpr(constants, '+', '-'));
+    return generateBinaryExpr(nonConstants.concat([constantsExpr]), '+', '-');
+  }
   return expr;
 }
 
