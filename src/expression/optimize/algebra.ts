@@ -196,17 +196,19 @@ export function extractBinaryExpr(
 ) {
   let result: { inverted: boolean, expr: Expression }[] = [];
   function step(expr: Expression, inverted: boolean): void {
-    if (expr.type !== 'binary') return;
+    if (expr.type !== 'binary') {
+      result.push({ inverted, expr });
+      return;
+    };
     if (expr.op === normalOp) {
-      result.push({ inverted, expr: expr.left });
-      result.push({ inverted, expr: expr.right });
       step(expr.left, inverted);
       return step(expr.right, inverted);
     } else if (expr.op === invertedOp) {
-      result.push({ inverted, expr: expr.left });
-      result.push({ inverted: !inverted, expr: expr.right });
-      step(expr.left, !inverted);
+      step(expr.left, inverted);
       return step(expr.right, !inverted);
+    } else {
+      result.push({ inverted, expr });
+      return;
     }
   }
   step(expr, false);
@@ -269,14 +271,22 @@ export function rewriteCollapse(expr: Expression): Expression {
     let values = extractBinaryExpr(expr, '*', '/');
     let constants = values.filter(v => canEvaluate(v.expr));
     let nonConstants = values.filter(v => !canEvaluate(v.expr));
-    let constantsExpr = evaluate(generateBinaryExpr(constants, '*', '/'));
+    if (constants.length <= 1) return expr;
+    let constantsExpr = {
+      inverted: false,
+      expr: valueToExpr(evaluate(generateBinaryExpr(constants, '*', '/'))),
+    };
     return generateBinaryExpr(nonConstants.concat([constantsExpr]), '*', '/');
   } else if (expr.op === '+' || expr.op === '-') {
     let values = extractBinaryExpr(expr, '+', '-');
     // TODO Handle factoring
     let constants = values.filter(v => canEvaluate(v.expr));
     let nonConstants = values.filter(v => !canEvaluate(v.expr));
-    let constantsExpr = evaluate(generateBinaryExpr(constants, '+', '-'));
+    if (constants.length <= 1) return expr;
+    let constantsExpr = {
+      inverted: false,
+      expr: valueToExpr(evaluate(generateBinaryExpr(constants, '+', '-'))),
+    };
     return generateBinaryExpr(nonConstants.concat([constantsExpr]), '+', '-');
   }
   return expr;
@@ -308,18 +318,18 @@ export function rewriteExpand(expr: Expression): Expression {
   return {
     type: 'binary',
     op: binaryTarget.op,
-    left: rewriteIdentity(rewriteExpand(rewriteEvaluate({
+    left: rewriteCollapse(rewriteIdentity(rewriteExpand(rewriteEvaluate({
       type: 'binary',
       op: expr.op,
       left: binaryTarget.left,
       right: unaryTarget,
-    }))),
-    right: rewriteIdentity(rewriteExpand(rewriteEvaluate({
+    })))),
+    right: rewriteCollapse(rewriteIdentity(rewriteExpand(rewriteEvaluate({
       type: 'binary',
       op: expr.op,
       left: binaryTarget.right,
       right: unaryTarget,
-    }))),
+    })))),
   };
 }
 
@@ -335,6 +345,7 @@ export function rewriteConstant(expr: Expression): Expression {
     // expand them using distributive property.
     // - (a + 3) * 5 -> a * 5 + 15
     let expandExpr = rewriteExpand(identExpr);
+    let collapseExpr = rewriteCollapse(expandExpr);
     // If the expression can be collapsed, e.g.
     // - a * 3 + a * 1 -> a * 4
     // - 6 * 3 + a * 3 + 4 * 5 -> 38 + a * 3
@@ -354,7 +365,7 @@ export function rewriteConstant(expr: Expression): Expression {
     //   - (a [* /] 3) [+ -] a
     //   - (a [* /] 3) [+ -] (a [* /] 1)
     //   - a [+ -] a
-    return expandExpr;
+    return collapseExpr;
   }); 
 }
 

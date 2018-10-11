@@ -85,14 +85,18 @@ describe('rewriteConstant', () => {
     expect(rewriteConstant(getColumn('SELECT 3 * (a - 2);')))
       .toEqual(getColumn('SELECT a * 3 - 6;'));
     expect(rewriteConstant(getColumn('SELECT (a + 5) * 2 * 3;')))
-      .toEqual(getColumn('SELECT a * 2 * 3 + 30;'));
+      .toEqual(getColumn('SELECT a * 6 + 30;'));
     expect(rewriteConstant(getColumn('SELECT (a - b) / 3;')))
       .toEqual(getColumn('SELECT a / 3 - b / 3;'));
     expect(rewriteConstant(getColumn('SELECT 3 / (a - b);')))
       .toEqual(getColumn('SELECT 3 / (a - b);'));
     expect(rewriteConstant(getColumn('SELECT 2 * (a + 5) * 3;')))
-      .toEqual(getColumn('SELECT a * 2 * 3 + 30;'));
+      .toEqual(getColumn('SELECT a * 6 + 30;'));
     expect(rewriteConstant(getColumn('SELECT ((a + 5) * 2 + b * 5) * 10;')))
-      .toEqual(getColumn('SELECT a * 2 * 10 + 100 + b * 5 * 10;'));
+      .toEqual(getColumn('SELECT a * 20 + 100 + b * 50;'));
+    expect(rewriteConstant(getColumn('SELECT a / 2 / 2 / 2 / 2 / 2 / 2;')))
+      .toEqual(getColumn('SELECT a / 64;'));
+    expect(rewriteConstant(getColumn('SELECT a - 3 - 3 - 3 - 3 - 3 - 3;')))
+      .toEqual(getColumn('SELECT a - 18;'));
   })
 });
