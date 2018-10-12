@@ -3,6 +3,7 @@ import { Expression, BinaryExpression } from 'yasqlp';
 import { rewrite, rewritePostOrder } from '../traverse';
 import { isConstant, rotateCompareOp } from '../op';
 import evaluate, { castBool } from '../evaluate';
+import hashCode from '../../util/hashCode';
 
 // Algebra / compare logic optimizer
 
@@ -279,14 +280,42 @@ export function rewriteCollapse(expr: Expression): Expression {
     return generateBinaryExpr(nonConstants.concat([constantsExpr]), '*', '/');
   } else if (expr.op === '+' || expr.op === '-') {
     let values = extractBinaryExpr(expr, '+', '-');
-    // TODO Handle factoring
     let constants = values.filter(v => canEvaluate(v.expr));
-    let nonConstants = values.filter(v => !canEvaluate(v.expr));
-    if (constants.length <= 1) return expr;
     let constantsExpr = {
       inverted: false,
       expr: valueToExpr(evaluate(generateBinaryExpr(constants, '+', '-'))),
     };
+    let nonConstants = values.filter(v => !canEvaluate(v.expr));
+    // Factoring should be taken account for all non constants -
+    // a + a should be converted to a * 2, but a * 2 + a should be a * 3.
+    // Basically, all expressions excluding these should be treated as factor 1:
+    // - a * C
+    // - C * a
+    // - a / C
+    // - -a
+    let exprList: { expr: Expression, hash: number }[] = [];
+    let exprMap: { [hash: number]: number } = {};
+    nonConstants.forEach(arg => {
+      let { expr } = arg;
+      let targetExpr: Expression;
+      let targetFactor = 1;
+      if (expr.type === 'binary') {
+        // TODO
+      } else if (expr.type === 'unary' && expr.op === '-') {
+        targetFactor = -1;
+        targetExpr = expr.value;
+      } else {
+        targetExpr = expr;
+      }
+      if (arg.inverted) targetFactor = -targetFactor;
+      let hash = hashCode(targetExpr);
+      if (exprMap[hash] == null) {
+        exprList.push({ expr: targetExpr, hash });
+        exprMap[hash] = targetFactor;
+      } else {
+        exprMap[hash] += targetFactor;
+      }
+    });
     return generateBinaryExpr(nonConstants.concat([constantsExpr]), '+', '-');
   }
   return expr;
