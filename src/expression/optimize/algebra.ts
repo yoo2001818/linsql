@@ -300,7 +300,18 @@ export function rewriteCollapse(expr: Expression): Expression {
       let targetExpr: Expression;
       let targetFactor = 1;
       if (expr.type === 'binary') {
-        // TODO
+        if (expr.op === '*' && expr.left.type === 'number') {
+          targetExpr = expr.right;
+          targetFactor = expr.left.value;
+        } else if (expr.op === '*' && expr.right.type === 'number') {
+          targetExpr = expr.left;
+          targetFactor = expr.right.value;
+        } else if (expr.op === '/' && expr.right.type === 'number') {
+          targetExpr = expr.left;
+          targetFactor = 1 / expr.right.value;
+        } else {
+          targetExpr = expr;
+        }
       } else if (expr.type === 'unary' && expr.op === '-') {
         targetFactor = -1;
         targetExpr = expr.value;
