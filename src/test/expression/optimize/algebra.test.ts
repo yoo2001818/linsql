@@ -93,10 +93,20 @@ describe('rewriteConstant', () => {
     expect(rewriteConstant(getColumn('SELECT 2 * (a + 5) * 3;')))
       .toEqual(getColumn('SELECT a * 6 + 30;'));
     expect(rewriteConstant(getColumn('SELECT ((a + 5) * 2 + b * 5) * 10;')))
-      .toEqual(getColumn('SELECT a * 20 + 100 + b * 50;'));
+      .toEqual(getColumn('SELECT a * 20 + b * 50 + 100;'));
+  });
+  it('should collapse expressions', () => {
+    expect(rewriteConstant(getColumn('SELECT a + a + a + a;')))
+      .toEqual(getColumn('SELECT a * 4;'));
+    expect(rewriteConstant(getColumn('SELECT a * 3 - a;')))
+      .toEqual(getColumn('SELECT a * 2;'));
+    expect(rewriteConstant(getColumn('SELECT a / 2 - a / 2;')))
+      .toEqual(getColumn('SELECT 0;'));
+    expect(rewriteConstant(getColumn('SELECT (a + b) * 3 + 5 * a;')))
+      .toEqual(getColumn('SELECT a * 8 + b * 3;'));
     expect(rewriteConstant(getColumn('SELECT a / 2 / 2 / 2 / 2 / 2 / 2;')))
       .toEqual(getColumn('SELECT a / 64;'));
     expect(rewriteConstant(getColumn('SELECT a - 3 - 3 - 3 - 3 - 3 - 3;')))
       .toEqual(getColumn('SELECT a - 18;'));
-  })
+  });
 });

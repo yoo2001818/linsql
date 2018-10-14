@@ -221,6 +221,7 @@ export function generateBinaryExpr(
   normalOp: BinaryExpression['op'],
   invertedOp: BinaryExpression['op'],
 ): Expression {
+  if (list.length === 0) return { type: 'number', value: 0 };
   return list.reduce((left: Expression, { inverted, expr }): Expression => {
     if (left == null) {
       if (!inverted) return expr;
@@ -273,19 +274,33 @@ export function rewriteCollapse(expr: Expression): Expression {
     let constants = values.filter(v => canEvaluate(v.expr));
     let nonConstants = values.filter(v => !canEvaluate(v.expr));
     if (constants.length <= 1) return expr;
+    let factor = evaluate(generateBinaryExpr(constants, '*', '/'));
+    let factorDividible = (1 / factor % 1) === 0;
     let constantsExpr = {
-      inverted: false,
-      expr: valueToExpr(evaluate(generateBinaryExpr(constants, '*', '/'))),
+      inverted: factorDividible,
+      expr: valueToExpr(factorDividible ? 1 / factor : factor),
     };
     return generateBinaryExpr(nonConstants.concat([constantsExpr]), '*', '/');
   } else if (expr.op === '+' || expr.op === '-') {
     let values = extractBinaryExpr(expr, '+', '-');
     let constants = values.filter(v => canEvaluate(v.expr));
-    let constantsExpr = {
-      inverted: false,
-      expr: valueToExpr(evaluate(generateBinaryExpr(constants, '+', '-'))),
-    };
     let nonConstants = values.filter(v => !canEvaluate(v.expr));
+    if (constants.length > 0) {
+      let constantsResult = evaluate(generateBinaryExpr(constants, '+', '-'));
+      let constantsExpr;
+      if (constantsResult < 0) {
+        constantsExpr = {
+          inverted: true,
+          expr: valueToExpr(-constantsResult),
+        };
+      } else {
+        constantsExpr = {
+          inverted: false,
+          expr: valueToExpr(constantsResult),
+        };
+      }
+      nonConstants.push(constantsExpr);
+    }
     // Factoring should be taken account for all non constants -
     // a + a should be converted to a * 2, but a * 2 + a should be a * 3.
     // Basically, all expressions excluding these should be treated as factor 1:
@@ -297,7 +312,7 @@ export function rewriteCollapse(expr: Expression): Expression {
     let exprMap: { [hash: number]: number } = {};
     nonConstants.forEach(arg => {
       let { expr } = arg;
-      let targetExpr: Expression;
+      let targetExpr: Expression = expr;
       let targetFactor = 1;
       if (expr.type === 'binary') {
         if (expr.op === '*' && expr.left.type === 'number') {
@@ -312,11 +327,10 @@ export function rewriteCollapse(expr: Expression): Expression {
         } else {
           targetExpr = expr;
         }
-      } else if (expr.type === 'unary' && expr.op === '-') {
+      }
+      if (expr.type === 'unary' && expr.op === '-') {
         targetFactor = -1;
         targetExpr = expr.value;
-      } else {
-        targetExpr = expr;
       }
       if (arg.inverted) targetFactor = -targetFactor;
       let hash = hashCode(targetExpr);
@@ -327,7 +341,23 @@ export function rewriteCollapse(expr: Expression): Expression {
         exprMap[hash] += targetFactor;
       }
     });
-    return generateBinaryExpr(nonConstants.concat([constantsExpr]), '+', '-');
+    return generateBinaryExpr(exprList.map(v => {
+      let factor = exprMap[v.hash];
+      if (factor === 0) return null;
+      if (factor === 1) return { inverted: false, expr: v.expr };
+      if (factor === -1) return { inverted: true, expr: v.expr };
+      let factorDividible = (1 / Math.abs(factor) % 1) === 0;
+      return {
+        inverted: factor < 0,
+        expr: {
+          type: 'binary',
+          op: factorDividible ? '/' : '*',
+          left: v.expr,
+          right: valueToExpr(factorDividible ?
+            1 / Math.abs(factor) : Math.abs(factor)),
+        } as Expression,
+      };
+    }).filter(v => v != null), '+', '-');
   }
   return expr;
 }
