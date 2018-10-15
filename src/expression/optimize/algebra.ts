@@ -404,7 +404,7 @@ export function rewriteExpand(expr: Expression): Expression {
 }
 
 export function rewriteConstant(expr: Expression): Expression {
-  return rewritePostOrder(expr, (expr) => {
+  return rewritePostOrder(expr, expr => {
     // If the given expression is constant, just evaluate it right away.
     if (canEvaluate(expr)) {
       return valueToExpr(evaluate(expr));
@@ -415,7 +415,6 @@ export function rewriteConstant(expr: Expression): Expression {
     // expand them using distributive property.
     // - (a + 3) * 5 -> a * 5 + 15
     let expandExpr = rewriteExpand(identExpr);
-    let collapseExpr = rewriteCollapse(expandExpr);
     // If the expression can be collapsed, e.g.
     // - a * 3 + a * 1 -> a * 4
     // - 6 * 3 + a * 3 + 4 * 5 -> 38 + a * 3
@@ -435,6 +434,7 @@ export function rewriteConstant(expr: Expression): Expression {
     //   - (a [* /] 3) [+ -] a
     //   - (a [* /] 3) [+ -] (a [* /] 1)
     //   - a [+ -] a
+    let collapseExpr = rewriteCollapse(expandExpr);
     return collapseExpr;
   }); 
 }
@@ -450,35 +450,38 @@ export function rewriteConstant(expr: Expression): Expression {
  * @param expr The expression to convert to SARGs if possible.
  */
 export function rewriteSargable(expr: Expression) {
-  return rewrite(expr, {}, (expr, state) => {
+  return rewritePostOrder(expr, expr => {
     if (expr.type === 'compare') {
       /**
        * We need to perform a lot of operations to rescue those poor SARGable
        * expressions - we need to exploit bunch of algebra properties to
        * make them right.
-       * If the expression is changed by any level of modifier, it should be
-       * rerun from the start (it may lead to infinite loop though.)
-       * 1. If the expression is constant, evaluate it right away.
-       *    - a + 5 * 2 -> a + 10
-       * 2. Expand all the columns using distributive property - this will allow
-       *    columns to appear at the root level.
-       *    - (a + 3) * 5 = 3 -> a * 5 + 3 * 5 = 3
-       * 3. If the same column appears multiple times, it can be reduced to 
-       *    appear only once, effectively becoming SARG.
-       *    This should only apply in append -> multiply order, the other
-       *    doesn't apply at all.
-       *    - a * 2 - a * 1 = 0 -> a = 0
-       *    - a + 3 - a + 5 = 0 -> 8 = 0 -> FALSE
-       *    - (a + 2) * (a + 3) -> This shouldn't be applied at all.
-       * 4. If the expression is identity function, convert them to raw entry.
-       *    - a * 1 + (a - 0) = 0 -> a + a = 0
-       * 5. Push all constants, or any other insignificant columns to the right.
-       *    This will require inverting the direction of expression.
-       *    'Insignificant' column can be decided randomly.
-       *    - a + 5 = 0 -> a = -5.
+       * 
+       * Thankfully, almost all work is done by rewriteConstant - we just have
+       * to reorder them correctly.
+       * 
+       * We just have to...
+       * 1. Push all constants, or any other insignificant columns to the right.
+       *    This requires inverting the direction of expression.
+       *    a + b = 0 -> a = -b
+       *    a - 52 -> a = 52
+       * 2. Remove any factor from the left side. This can be achieved
+       *    by dividing both side by left side's factor.
+       *    This, of course, includes unary - too.
+       *    a / 3 = 6 -> a = 6 * 3
+       *    a * 3 = 9 -> a = 9 / 3
+       * 3. Evaluate right side, if necessary.
        */
-      // TODO Write stuff...
+      // We have to treat all expressions as addition expression, as it's
+      // expected for simple algebra expressions to have shape like
+      // (a * b) + (c * d) + ...
+      // Then, we choose what to leave on the left side. This can be selected
+      // randomly, but 'whole' column, like `a`, not like COALESCE(a, b), should
+      // be prefered.
+      // Then, move everything else to right, by inverting its factor.
+      let leftValues = extractBinaryExpr(expr.left, '+', '-');
+      let rightValues = extractBinaryExpr(expr.right, '+', '-');
     }
-    return { expr, state };
+    return expr;
   });
 }
