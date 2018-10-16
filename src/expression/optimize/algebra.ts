@@ -191,7 +191,7 @@ export function rewriteEvaluate(expr: Expression): Expression {
 }
 
 export function extractBinaryExpr(
-  expr: BinaryExpression,
+  expr: Expression,
   normalOp: BinaryExpression['op'],
   invertedOp: BinaryExpression['op'],
 ) {
@@ -244,6 +244,37 @@ export function generateBinaryExpr(
   }, null);
 }
 
+export function extractBinaryExprFactor(expr: Expression) {
+  return extractBinaryExpr(expr, '+', '-').map(value => {
+    if (canEvaluate(value.expr)) {
+      return { ...value, factor: 1, constant: true };
+    }
+    let expr = value.expr;
+    let factor = 1;
+    if (expr.type === 'binary') {
+      const { left, right } = expr;
+      if (expr.op === '*' && left.type === 'number') {
+        expr = expr.right;
+        factor = left.value;
+      } else if (expr.op === '*' && right.type === 'number') {
+        expr = expr.left;
+        factor = right.value;
+      } else if (expr.op === '/' && right.type === 'number') {
+        expr = expr.left;
+        factor = 1 / right.value;
+      } else {
+        expr = expr;
+      }
+    }
+    if (expr.type === 'unary' && expr.op === '-') {
+      factor = -1;
+      expr = expr.value;
+    }
+    if (value.inverted) factor = -factor;
+    return { expr, factor, inverted: false, constant: false };
+  });
+}
+
 // TODO This will be run repeatedly for each expression; There should be some
 // kind of cutoff? that prohibits this behavior.
 export function rewriteCollapse(expr: Expression): Expression {
@@ -282,9 +313,9 @@ export function rewriteCollapse(expr: Expression): Expression {
     };
     return generateBinaryExpr(nonConstants.concat([constantsExpr]), '*', '/');
   } else if (expr.op === '+' || expr.op === '-') {
-    let values = extractBinaryExpr(expr, '+', '-');
-    let constants = values.filter(v => canEvaluate(v.expr));
-    let nonConstants = values.filter(v => !canEvaluate(v.expr));
+    let values = extractBinaryExprFactor(expr);
+    let constants = values.filter(v => v.constant);
+    let nonConstants = values.filter(v => !v.constant);
     if (constants.length > 0) {
       let constantsResult = evaluate(generateBinaryExpr(constants, '+', '-'));
       let constantsExpr;
@@ -292,53 +323,29 @@ export function rewriteCollapse(expr: Expression): Expression {
         constantsExpr = {
           inverted: true,
           expr: valueToExpr(-constantsResult),
+          factor: 1,
+          constant: true,
         };
       } else {
         constantsExpr = {
           inverted: false,
           expr: valueToExpr(constantsResult),
+          factor: 1,
+          constant: true,
         };
       }
       nonConstants.push(constantsExpr);
     }
-    // Factoring should be taken account for all non constants -
-    // a + a should be converted to a * 2, but a * 2 + a should be a * 3.
-    // Basically, all expressions excluding these should be treated as factor 1:
-    // - a * C
-    // - C * a
-    // - a / C
-    // - -a
     let exprList: { expr: Expression, hash: number }[] = [];
     let exprMap: { [hash: number]: number } = {};
     nonConstants.forEach(arg => {
-      let { expr } = arg;
-      let targetExpr: Expression = expr;
-      let targetFactor = 1;
-      if (expr.type === 'binary') {
-        if (expr.op === '*' && expr.left.type === 'number') {
-          targetExpr = expr.right;
-          targetFactor = expr.left.value;
-        } else if (expr.op === '*' && expr.right.type === 'number') {
-          targetExpr = expr.left;
-          targetFactor = expr.right.value;
-        } else if (expr.op === '/' && expr.right.type === 'number') {
-          targetExpr = expr.left;
-          targetFactor = 1 / expr.right.value;
-        } else {
-          targetExpr = expr;
-        }
-      }
-      if (expr.type === 'unary' && expr.op === '-') {
-        targetFactor = -1;
-        targetExpr = expr.value;
-      }
-      if (arg.inverted) targetFactor = -targetFactor;
-      let hash = hashCode(targetExpr);
+      let { expr, factor } = arg;
+      let hash = hashCode(expr);
       if (exprMap[hash] == null) {
-        exprList.push({ expr: targetExpr, hash });
-        exprMap[hash] = targetFactor;
+        exprList.push({ expr, hash });
+        exprMap[hash] = factor;
       } else {
-        exprMap[hash] += targetFactor;
+        exprMap[hash] += factor;
       }
     });
     return generateBinaryExpr(exprList.map(v => {
