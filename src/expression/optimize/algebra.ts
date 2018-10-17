@@ -244,10 +244,22 @@ export function generateBinaryExpr(
   }, null);
 }
 
-export function extractBinaryExprFactor(expr: Expression) {
+type BinaryExprFactorItem = {
+  expr: Expression,
+  factor: number,
+  constant?: boolean,
+};
+
+export function extractBinaryExprFactor(
+  expr: Expression,
+): BinaryExprFactorItem[] {
   return extractBinaryExpr(expr, '+', '-').map(value => {
     if (canEvaluate(value.expr)) {
-      return { ...value, factor: 1, constant: true };
+      return {
+        expr: value.expr,
+        factor: value.inverted ? -1 : 1,
+        constant: true,
+      };
     }
     let expr = value.expr;
     let factor = 1;
@@ -271,8 +283,30 @@ export function extractBinaryExprFactor(expr: Expression) {
       expr = expr.value;
     }
     if (value.inverted) factor = -factor;
-    return { expr, factor, inverted: false, constant: false };
+    return { expr, factor, constant: false };
   });
+}
+
+export function generateBinaryExprFactor(
+  list: BinaryExprFactorItem[],
+) {
+  return generateBinaryExpr(list.map(v => {
+    const { factor, expr } = v;
+    if (factor === 0) return null;
+    if (factor === 1) return { inverted: false, expr: expr };
+    if (factor === -1) return { inverted: true, expr: expr };
+    let factorDividible = (1 / Math.abs(factor) % 1) === 0;
+    return {
+      inverted: factor < 0,
+      expr: {
+        type: 'binary',
+        op: factorDividible ? '/' : '*',
+        left: expr,
+        right: valueToExpr(factorDividible ?
+          1 / Math.abs(factor) : Math.abs(factor)),
+      } as Expression,
+    };
+  }).filter(v => v != null), '+', '-');
 }
 
 // TODO This will be run repeatedly for each expression; There should be some
@@ -317,24 +351,13 @@ export function rewriteCollapse(expr: Expression): Expression {
     let constants = values.filter(v => v.constant);
     let nonConstants = values.filter(v => !v.constant);
     if (constants.length > 0) {
-      let constantsResult = evaluate(generateBinaryExpr(constants, '+', '-'));
-      let constantsExpr;
-      if (constantsResult < 0) {
-        constantsExpr = {
-          inverted: true,
-          expr: valueToExpr(-constantsResult),
-          factor: 1,
-          constant: true,
-        };
-      } else {
-        constantsExpr = {
-          inverted: false,
-          expr: valueToExpr(constantsResult),
-          factor: 1,
-          constant: true,
-        };
-      }
-      nonConstants.push(constantsExpr);
+      let result = evaluate(generateBinaryExpr(
+        constants.map(v => ({ ...v, inverted: v.factor < 0 })), '+', '-'));
+      nonConstants.push({
+        expr: valueToExpr(result < 0 ? -result : result),
+        factor: result < 0 ? -1 : 1,
+        constant: true,
+      });
     }
     let exprList: { expr: Expression, hash: number }[] = [];
     let exprMap: { [hash: number]: number } = {};
@@ -348,23 +371,8 @@ export function rewriteCollapse(expr: Expression): Expression {
         exprMap[hash] += factor;
       }
     });
-    return generateBinaryExpr(exprList.map(v => {
-      let factor = exprMap[v.hash];
-      if (factor === 0) return null;
-      if (factor === 1) return { inverted: false, expr: v.expr };
-      if (factor === -1) return { inverted: true, expr: v.expr };
-      let factorDividible = (1 / Math.abs(factor) % 1) === 0;
-      return {
-        inverted: factor < 0,
-        expr: {
-          type: 'binary',
-          op: factorDividible ? '/' : '*',
-          left: v.expr,
-          right: valueToExpr(factorDividible ?
-            1 / Math.abs(factor) : Math.abs(factor)),
-        } as Expression,
-      };
-    }).filter(v => v != null), '+', '-');
+    return generateBinaryExprFactor(exprList.map(
+      v => ({ expr: v.expr, factor: exprMap[v.hash] })));
   }
   return expr;
 }
@@ -482,12 +490,42 @@ export function rewriteSargable(expr: Expression) {
       // We have to treat all expressions as addition expression, as it's
       // expected for simple algebra expressions to have shape like
       // (a * b) + (c * d) + ...
-      // Then, we choose what to leave on the left side. This can be selected
+      let leftValues = extractBinaryExprFactor(expr.left);
+      let rightValues = extractBinaryExprFactor(expr.right);
+      // Choose what to leave on the left side. This can be selected
       // randomly, but 'whole' column, like `a`, not like COALESCE(a, b), should
       // be prefered.
+      // Check if there is a column first.
+      let values = leftValues.concat(rightValues);
+      let chosenValue = values.find(v => v.expr.type === 'column');
+      // If not, just choose any non-evaluatable value.
+      if (chosenValue == null) {
+        chosenValue = values.find(v => !canEvaluate(v.expr));
+      }
+      // Still no? ... it means that the whole compare expression can be
+      // evaluated.
+      if (chosenValue == null) return valueToExpr(evaluate(expr));
+      let chosenHash = hashCode(chosenValue.expr);
       // Then, move everything else to right, by inverting its factor.
-      let leftValues = extractBinaryExpr(expr.left, '+', '-');
-      let rightValues = extractBinaryExpr(expr.right, '+', '-');
+      let newLeft: BinaryExprFactorItem[] = [];
+      let newRight: BinaryExprFactorItem[] = [];
+      leftValues.forEach(value => {
+        let hash = hashCode(value.expr);
+        if (hash === chosenHash) {
+          newLeft.push(value);
+        } else {
+          newRight.push({ ...value, factor: -value.factor });
+        }
+      });
+      rightValues.forEach(value => {
+        let hash = hashCode(value.expr);
+        if (hash === chosenHash) {
+          newLeft.push({ ...value, factor: -value.factor });
+        } else {
+          newRight.push(value);
+        }
+      });
+      // Finally, merge them.
     }
     return expr;
   });
