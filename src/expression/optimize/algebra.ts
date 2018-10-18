@@ -309,6 +309,43 @@ export function generateBinaryExprFactor(
   }).filter(v => v != null), '+', '-');
 }
 
+export function mergeBinaryExprFactor(
+  list: BinaryExprFactorItem[],
+) {
+  let constants: BinaryExprFactorItem[] = [];
+  let exprList: { expr: Expression, hash: number }[] = [];
+  let exprMap: { [hash: number]: number } = {};
+  list.forEach(value => {
+    let { expr, factor } = value;
+    if (value.constant) {
+      constants.push(value);
+      return;
+    }
+    let hash = hashCode(expr);
+    if (exprMap[hash] == null) {
+      exprList.push({ expr, hash });
+      exprMap[hash] = factor;
+    } else {
+      exprMap[hash] += factor;
+    }
+  });
+  let result = exprList.map(v => ({
+    expr: v.expr,
+    factor: exprMap[v.hash],
+    constant: false,
+  }));
+  if (constants.length > 0) {
+    let constantResult = result.push(evaluate(generateBinaryExpr(
+      constants.map(v => ({ ...v, inverted: v.factor < 0 })), '+', '-')));
+    result.push({
+      expr: valueToExpr(constantResult < 0 ? -result : result),
+      factor: constantResult < 0 ? -1 : 1,
+      constant: true,
+    });
+  }
+  return result;
+}
+
 // TODO This will be run repeatedly for each expression; There should be some
 // kind of cutoff? that prohibits this behavior.
 export function rewriteCollapse(expr: Expression): Expression {
@@ -348,31 +385,7 @@ export function rewriteCollapse(expr: Expression): Expression {
     return generateBinaryExpr(nonConstants.concat([constantsExpr]), '*', '/');
   } else if (expr.op === '+' || expr.op === '-') {
     let values = extractBinaryExprFactor(expr);
-    let constants = values.filter(v => v.constant);
-    let nonConstants = values.filter(v => !v.constant);
-    if (constants.length > 0) {
-      let result = evaluate(generateBinaryExpr(
-        constants.map(v => ({ ...v, inverted: v.factor < 0 })), '+', '-'));
-      nonConstants.push({
-        expr: valueToExpr(result < 0 ? -result : result),
-        factor: result < 0 ? -1 : 1,
-        constant: true,
-      });
-    }
-    let exprList: { expr: Expression, hash: number }[] = [];
-    let exprMap: { [hash: number]: number } = {};
-    nonConstants.forEach(arg => {
-      let { expr, factor } = arg;
-      let hash = hashCode(expr);
-      if (exprMap[hash] == null) {
-        exprList.push({ expr, hash });
-        exprMap[hash] = factor;
-      } else {
-        exprMap[hash] += factor;
-      }
-    });
-    return generateBinaryExprFactor(exprList.map(
-      v => ({ expr: v.expr, factor: exprMap[v.hash] })));
+    return generateBinaryExprFactor(mergeBinaryExprFactor(values));
   }
   return expr;
 }
@@ -465,7 +478,7 @@ export function rewriteConstant(expr: Expression): Expression {
  * @param expr The expression to convert to SARGs if possible.
  */
 export function rewriteSargable(expr: Expression) {
-  return rewritePostOrder(expr, expr => {
+  return rewritePostOrder(expr, (expr: Expression) => {
     if (expr.type === 'compare') {
       /**
        * We need to perform a lot of operations to rescue those poor SARGable
@@ -526,6 +539,17 @@ export function rewriteSargable(expr: Expression) {
         }
       });
       // Finally, merge them.
+      let mergedLeft = mergeBinaryExprFactor(newLeft);
+      let mergedRight = mergeBinaryExprFactor(newRight);
+      // If mergedLeft has multiplier, it should be moved into right by
+      // dividing that amount.
+      // a * 3 = 9 -> a = 3
+      // a / b = 1 -> a = 1 * b -> a = b
+      return {
+        ...expr,
+        left: mergedLeft,
+        right: mergedRight,
+      }
     }
     return expr;
   });
