@@ -126,6 +126,16 @@ describe('rewriteSargable', () => {
     expect(rewriteSargable(getColumn('SELECT a / 5 = 5 / 5;')))
       .toEqual(getColumn('SELECT a = 5;'));
     expect(rewriteSargable(getColumn('SELECT a / b = 2;')))
-      .toEqual(getColumn('SELECT a = b * 2;'));
+      .toEqual(getColumn('SELECT a = 2 * b;'));
+    expect(rewriteSargable(getColumn('SELECT a / 2 + b * 3 = 4;')))
+      .toEqual(getColumn('SELECT a = b * -6 + 8;'));
+  });
+  it('should prefer columns', () => {
+    expect(rewriteSargable(getColumn('SELECT (SELECT 1) + a.a + 3 = 0;')))
+      .toEqual(getColumn('SELECT a.a = -(SELECT 1) - 3;'));
+    expect(rewriteSargable(getColumn('SELECT a * b + a = 0;')))
+      .toEqual(getColumn('SELECT a = -(a * b);'));
+    expect(rewriteSargable(getColumn('SELECT a - b - c > 3;')))
+      .toEqual(getColumn('SELECT a > b + c + 3;'));
   });
 });

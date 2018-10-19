@@ -548,15 +548,28 @@ export function rewriteSargable(expr: Expression) {
       // a / b = 1 -> a = 1 * b -> a = b
       if (mergedLeft.length === 1) {
         let item = mergedLeft[0];
-        if (item.expr.type === 'binary') {
+        let itemExpr = item.expr;
+        let newExpr: Expression = null;
+        let newOp: '*' | '/' = null;
+        if (item.expr.type === 'binary' && ['/', '*'].includes(item.expr.op)) {
           // If it is * or /, unwrap it
+          newOp = item.expr.op === '*' ? '/' : '*';
+          itemExpr = item.expr.left;
+          newExpr = item.expr.right;
         }
         mergedRight = mergedRight.map(v => ({
           ...v,
+          expr: newExpr == null ? v.expr : {
+            type: 'binary' as 'binary',
+            op: newOp,
+            left: v.expr,
+            right: newExpr,
+          },
           factor: v.factor / item.factor,
         }));
         mergedLeft = [{
           ...item,
+          expr: itemExpr,
           factor: 1,
         }]
       }
