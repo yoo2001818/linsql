@@ -542,13 +542,28 @@ export function rewriteSargable(expr: Expression) {
       let mergedLeft = mergeBinaryExprFactor(newLeft);
       let mergedRight = mergeBinaryExprFactor(newRight);
       // If mergedLeft has multiplier, it should be moved into right by
-      // dividing that amount.
+      // dividing that amount.... but do that only if one property is left in
+      // the factor.
       // a * 3 = 9 -> a = 3
       // a / b = 1 -> a = 1 * b -> a = b
+      if (mergedLeft.length === 1) {
+        let item = mergedLeft[0];
+        if (item.expr.type === 'binary') {
+          // If it is * or /, unwrap it
+        }
+        mergedRight = mergedRight.map(v => ({
+          ...v,
+          factor: v.factor / item.factor,
+        }));
+        mergedLeft = [{
+          ...item,
+          factor: 1,
+        }]
+      }
       return {
         ...expr,
-        left: mergedLeft,
-        right: mergedRight,
+        left: generateBinaryExprFactor(mergedLeft),
+        right: generateBinaryExprFactor(mergedRight),
       }
     }
     return expr;
