@@ -1,4 +1,4 @@
-import { rewriteIdentity, rewriteConstant }
+import { rewriteIdentity, rewriteConstant, rewriteSargable }
   from '../../../expression/optimize/algebra';
 import { getColumn } from '../../../util/select';
 
@@ -108,5 +108,24 @@ describe('rewriteConstant', () => {
       .toEqual(getColumn('SELECT a / 64;'));
     expect(rewriteConstant(getColumn('SELECT a - 3 - 3 - 3 - 3 - 3 - 3;')))
       .toEqual(getColumn('SELECT a - 18;'));
+  });
+});
+
+describe('rewriteSargable', () => {
+  it('should move columns to left', () => {
+    expect(rewriteSargable(getColumn('SELECT 3 = a;')))
+      .toEqual(getColumn('SELECT a = 3;'));
+    expect(rewriteSargable(getColumn('SELECT -3 = -a;')))
+      .toEqual(getColumn('SELECT a = 3;'));
+    expect(rewriteSargable(getColumn('SELECT a - b = 0;')))
+      .toEqual(getColumn('SELECT a = b;'));
+  });
+  it('should divide by factor', () => {
+    expect(rewriteSargable(getColumn('SELECT a * 5 = 25;')))
+      .toEqual(getColumn('SELECT a = 5;'));
+    expect(rewriteSargable(getColumn('SELECT a / 5 = 5 / 5;')))
+      .toEqual(getColumn('SELECT a = 5;'));
+    expect(rewriteSargable(getColumn('SELECT a / b = 2;')))
+      .toEqual(getColumn('SELECT a = b * 2;'));
   });
 });

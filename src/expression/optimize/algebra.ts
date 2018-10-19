@@ -335,10 +335,10 @@ export function mergeBinaryExprFactor(
     constant: false,
   }));
   if (constants.length > 0) {
-    let constantResult = result.push(evaluate(generateBinaryExpr(
-      constants.map(v => ({ ...v, inverted: v.factor < 0 })), '+', '-')));
+    let constantResult = evaluate(generateBinaryExpr(
+      constants.map(v => ({ ...v, inverted: v.factor < 0 })), '+', '-'));
     result.push({
-      expr: valueToExpr(constantResult < 0 ? -result : result),
+      expr: valueToExpr(constantResult < 0 ? -constantResult : constantResult),
       factor: constantResult < 0 ? -1 : 1,
       constant: true,
     });
@@ -478,7 +478,7 @@ export function rewriteConstant(expr: Expression): Expression {
  * @param expr The expression to convert to SARGs if possible.
  */
 export function rewriteSargable(expr: Expression) {
-  return rewritePostOrder(expr, (expr: Expression) => {
+  return rewritePostOrder(rewriteConstant(expr), (expr: Expression) => {
     if (expr.type === 'compare') {
       /**
        * We need to perform a lot of operations to rescue those poor SARGable
@@ -562,8 +562,8 @@ export function rewriteSargable(expr: Expression) {
       }
       return {
         ...expr,
-        left: generateBinaryExprFactor(mergedLeft),
-        right: generateBinaryExprFactor(mergedRight),
+        left: rewriteConstant(generateBinaryExprFactor(mergedLeft)),
+        right: rewriteConstant(generateBinaryExprFactor(mergedRight)),
       }
     }
     return expr;
