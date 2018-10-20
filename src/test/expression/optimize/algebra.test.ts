@@ -138,4 +138,8 @@ describe('rewriteSargable', () => {
     expect(rewriteSargable(getColumn('SELECT a - b - c > 3;')))
       .toEqual(getColumn('SELECT a > b + c + 3;'));
   });
+  it('should merge chosen column', () => {
+    expect(rewriteSargable(getColumn('SELECT a + a + a = 3;')))
+      .toEqual(getColumn('SELECT a = 1;'));
+  });
 });

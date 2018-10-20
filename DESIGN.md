@@ -332,6 +332,75 @@ query. If nothing is found, add materialization.
 However, if subquery's result is being joined to other table, it may be
 beneficial to forcefully insert 'order by' into the subquery, to allow lookups.
 
+#### Converting subquery to join
+Almost all subqueries can be converted to joins. This has some caveats since
+name conflicts can occur. (Not sure if SQL allows that)
+
+This allows using same optimization routine for joins and subqueries, which can
+reduce complexity a lot.
+
+This requires that subquery has some kind of connection with the parent query,
+so it can perform join. Otherwise, it should just use subqueries.
+
+The following kinds of subqueries are available - 
+
+- EXISTS
+- NOT EXISTS
+- IN
+- NOT IN
+- Scalar subquery
+- Subquery table
+
+##### EXISTS
+EXISTS can be just converted into regular joins, except nothing would actually
+refer that table.
+
+```sql
+SELECT * FROM a WHERE EXISTS(SELECT 1 FROM b WHERE b.name = a.name);
+-- into:
+SELECT a.* FROM a JOIN b _subquery1 ON b.name = a.name;
+```
+
+##### NOT EXISTS
+NOT EXISTS is similiar to EXISTS, but it should use left join and 'IS NULL'
+on id.
+
+```sql
+SELECT * FROM a
+  WHERE NOT EXISTS(SELECT 1 FROM b WHERE b.name = a.name);
+-- into:
+SELECT a.* FROM a
+  LEFT JOIN b _subquery1 ON _subquery1.name = a.name
+  WHERE _subquery1.id IS NULL;
+```
+
+##### IN
+IN can be converted to regular joins by adding `a = b` in join.
+
+```sql
+SELECT * FROM a
+  WHERE a.name IN (SELECT name FROM b WHERE b.price > 10);
+-- into:
+SELECT a.* FROM a
+  LEFT JOIN b _subquery1 ON _subquery1.name = a.name
+  WHERE _subquery1.price > 10;
+```
+
+##### NOT IN
+NOT IN can be converted to left joins.
+
+```sql
+SELECT * FROM a
+  WHERE a.name NOT IN (SELECT name FROM b WHERE b.price > 10);
+-- into:
+SELECT a.* FROM a
+  LEFT JOIN b _subquery1 ON _subquery1.name = a.name
+  WHERE _subquery1.price > 10 AND _subquery1.id IS NULL;
+```
+
+##### Scalar subquery
+##### Subquery table
+
 #### Optimizing exists / single column query
 Single column query / exists may be converted to joins. Especially exists -
 it just has to be converted to JOIN with LIMIT 1.
