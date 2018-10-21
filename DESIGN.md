@@ -322,6 +322,9 @@ required to mark the table as 'group by 1' or something to perform aggregation.
 Subquerys, however, has a lot of potential for optimization. We can perform
 materialization, converision to join, or just eliminate them.
 
+Since we can't use indexes at all, subquerys are extremely inefficient if
+it can't be optimized. (Otherwise, it'll always end in O(n^2).... so horrible.)
+
 #### Materialization of subquery
 Is the subquery independent from the rest of the queries? If so, we can just
 materialize the table and use it from the cache.
@@ -333,14 +336,22 @@ However, if subquery's result is being joined to other table, it may be
 beneficial to forcefully insert 'order by' into the subquery, to allow lookups.
 
 #### Converting subquery to join
-Almost all subqueries can be converted to joins. This has some caveats since
+Many subqueries can be converted to joins. This has some caveats since
 name conflicts can occur. (Not sure if SQL allows that)
 
 This allows using same optimization routine for joins and subqueries, which can
 reduce complexity a lot.
 
-This requires that subquery has some kind of connection with the parent query,
-so it can perform join. Otherwise, it should just use subqueries.
+However, subqueries has [few requirements for conversion](https://docs.oracle.com/javadb/10.8.3.0/tuning/ctuntransform36368.html)
+which must be checked before the conversion.
+
+- Subquery should't be under OR - but it may use unions, If that's cheaper.
+- Subquery shouldn't use aggregation (It may use materialized table, though.)
+- Subquery shouldn't use order by, limit.
+  (LIMIT 1 can be converted into semi-join, and uniqueness check can be ignored
+  by using semi-join.)
+- Subquery's table shouldn't be another subquery (nested subquery can't be
+  converted)
 
 The following kinds of subqueries are available - 
 
@@ -399,6 +410,8 @@ SELECT a.* FROM a
 ```
 
 ##### Scalar subquery
+`SELECT (SELECT 1);` kind of stuff
+
 ##### Subquery table
 
 #### Optimizing exists / single column query
