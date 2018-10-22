@@ -278,6 +278,57 @@ inherited OR values should be able to extend parent's AND graph. This can be
 done by completely copying the parent value, or just by reserving parent's
 nodes ID.
 
+### Expressing aggregation / join / subquery
+yasqlp returns AST for select statements. This is hardly useful for actually
+executing query, as all the information is scattered across objects.
+
+We need more efficient structure for expressing such case, which is partially
+described below section.
+
+#### Aggregation
+Aggregations are done at (almost) last step of query execution - it gets
+performed after joining, before column result generation.
+
+Aggregations are expressed in column result, however, column result can't be
+run without aggregation. We need a way to get dependencies and extract them.
+
+`SELECT MIN(a.name) FROM a;` should be converted to
+`_aggr.value1`, along with aggregation dependencies.
+
+```js
+{
+  type: 'aggregation',
+  name: 'value1',
+  table: 'a',
+  op: 'min',
+  value: { type: 'column', table: 'a', column: 'name' },
+}
+```
+
+### Join
+Select statements can put tables in any order. It is query planner's
+reponsibility to reorder them to fastest order.
+
+At the last stage of query planning, it should be converted to 'physical'
+operators, so it may be pretty meaningless to rewrite AST for this.
+
+### Subquery
+Unlike joins, subquerys can pop out anywhere, literally. Like aggregation,
+it needs walking the AST and extracting the subquery.
+
+But subquery is performed while pulling the table information, i.e. 'selection',
+so it should be in different place from aggregation list.
+
+Subquery in columns should be converted to anonymous subquery table to process
+them.
+
+```sql
+SELECT (SELECT 1) FROM a;
+-- to:
+SELECT _subquery1.0
+  FROM a, (SELECT 1) _subquery1;
+```
+
 ### Converting aggregation / subquerys to table lookups
 Expression evaluation mechanism cannot execute aggregation / subquery by itself.
 To implement them, we must replace them into regular column lookups, Then inject
@@ -410,14 +461,35 @@ SELECT a.* FROM a
 ```
 
 ##### Scalar subquery
-`SELECT (SELECT 1);` kind of stuff
+Something like `SELECT (SELECT 1);` - It can be converted to left joins,
+defaulting to null if not found.
+
+Unlike other queries, this must be ensured to have one column and one row - 
+so it must be proved to be unique.
+
+```sql
+SELECT a.id, (SELECT b.name FROM b WHERE a.id = b.id) FROM a;
+-- into:
+SELECT a.id, _subquery1.name FROM a
+  LEFT JOIN b _subquery1 ON _subquery1.id = a.id;
+```
+
+If b has foreign key constraint, a can be just removed from the query.
 
 ##### Subquery table
+Subquery table can't be merged well - but there's some case it can be done.
 
-#### Optimizing exists / single column query
-Single column query / exists may be converted to joins. Especially exists -
-it just has to be converted to JOIN with LIMIT 1.
-Single column query can also be converted to joins.
+However, I can't think of the case this would be actually used, so only
+materialization should be done, for now.
+
+```sql
+SELECT a.id, b.id
+  FROM a, (SELECT c.* FROM c WHERE a.id = c.id) b;
+-- into:
+SELECT a.id, b.id
+  FROM a
+  JOIN c b ON a.id = c.id;
+```
 
 ### Calculate join dependency graph
 After optimization, we can finally generate join dependency graph.
