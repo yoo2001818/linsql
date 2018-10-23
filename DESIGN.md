@@ -282,8 +282,8 @@ nodes ID.
 yasqlp returns AST for select statements. This is hardly useful for actually
 executing query, as all the information is scattered across objects.
 
-We need more efficient structure for expressing such case, which is partially
-described below section.
+We need more efficient structure for expressing such case, which is
+described below.
 
 #### Aggregation
 Aggregations are done at (almost) last step of query execution - it gets
@@ -312,6 +312,10 @@ reponsibility to reorder them to fastest order.
 At the last stage of query planning, it should be converted to 'physical'
 operators, so it may be pretty meaningless to rewrite AST for this.
 
+We can think of join as 'table with constraints', unlike `FROM a, b`, etc.
+yasqlp parser already represents table lookups like this, so we have no problem
+with that.
+
 ### Subquery
 Unlike joins, subquerys can pop out anywhere, literally. Like aggregation,
 it needs walking the AST and extracting the subquery.
@@ -328,42 +332,6 @@ SELECT (SELECT 1) FROM a;
 SELECT _subquery1.0
   FROM a, (SELECT 1) _subquery1;
 ```
-
-### Converting aggregation / subquerys to table lookups
-Expression evaluation mechanism cannot execute aggregation / subquery by itself.
-To implement them, we must replace them into regular column lookups, Then inject
-the tables before evaluating.
-
-So, aggregation / subquery processor should convert expression to exclude them,
-and output required aggregations and subquerys.
-
-`a.c > 5 AND MIN(b.d) AND (SELECT 1)` should be converted to
-`a.c > 5 AND _aggr1.value AND _subquery1.value`, along with a task list like
-this:
-
-```js
-[
-  {
-    type: 'aggregation',
-    id: 1,
-    table: 'b',
-    op: 'min',
-    value: { type: 'column', table: 'b', column: 'd' },
-  },
-  {
-    type: 'subquery',
-    id; 1,
-    value: {
-      type: 'select',
-      columns: [], // skipped
-      // ...
-    },
-  },
-]
-```
-
-This should be enough to express prerequisties. Optimization should be done
-later.
 
 ### Optimizing aggregation and subquerys
 Converted result is not really pleasing; we need to optimize aggregations
