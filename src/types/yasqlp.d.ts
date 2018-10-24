@@ -117,7 +117,7 @@ declare module 'yasqlp' {
     limit: null | { limit: null | number, offset: null | number },
     unions?: null | SelectUnionStatement[],
   };
-  export type SelectStatement = SelectBasicStatement;
+  export type SelectStatement = SelectBasicStatement | SelectUnionStatement;
   export type InsertValues = {
     type: 'values',
     values: Expression[][],

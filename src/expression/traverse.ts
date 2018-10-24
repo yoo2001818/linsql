@@ -1,4 +1,5 @@
-import { Expression } from 'yasqlp';
+import { Expression,
+  SelectStatement, SelectBasicStatement, SelectUnionStatement } from 'yasqlp';
 
 import { AndGraphExpression } from './optimize/graph';
 
@@ -79,6 +80,90 @@ function traverseStep(expr: Expression, map: (expr: Expression) => Expression) {
       }
       return expr;
     }
+    case 'aggregation': {
+      let value = expr.value;
+      if (value !== expr.value) {
+        return { ...expr, value };
+      }
+      return expr;
+    }
+    case 'exists': {
+      let value = expr.value;
+      if (value !== expr.value) {
+        return { ...expr, value };
+      }
+      return expr;
+    }
+    case 'select': {
+      let columns = expr.columns.map(entry => {
+        let value = map(entry.value);
+        if (value !== entry.value) {
+          return { ...entry, value };
+        }
+        return entry;
+      });
+      let from = expr.from.map(entry => {
+        let table = entry.table;
+        if (entry.table.value.type === 'select') {
+          let newSelect = map(entry.table.value);
+          if (newSelect !== entry.table.value) {
+            table = { ...table, value: newSelect as SelectStatement };
+          }
+        }
+        if (entry.type !== 'normal') {
+          let where = map(entry.where);
+          if (table !== entry.table || where !== entry.where) {
+            return { ...entry, table };
+          }
+        } else {
+          if (table !== entry.table) {
+            return { ...entry, table };
+          }
+        }
+        return entry;
+      });
+      let where = map(expr.where);
+      let groupBy = expr.groupBy.map(v => map(v));
+      let having = map(expr.having);
+      let order: SelectBasicStatement['order'] = null;
+      let unions: SelectBasicStatement['unions'] = null;
+      if (!('unionType' in expr)) {
+        order = expr.order && expr.order.map(entry => {
+          let value = map(entry.value);
+          if (value !== entry.value) {
+            return { ...entry, value };
+          }
+          return entry;
+        });
+        unions = expr.unions &&
+          expr.unions.map(v => map(v) as SelectUnionStatement);
+      }
+      if (
+        expr.columns.some((v, i) => v !== columns[i]) ||
+        expr.from.some((v, i) => v !== from[i]) ||
+        where !== expr.where ||
+        expr.groupBy.some((v, i) => v !== groupBy[i]) ||
+        having !== expr.having ||
+        (!('unionType' in expr) && (
+          expr.order.some((v, i) => v !== order[i]) ||
+          expr.unions.some((v, i) => v !== unions[i])
+        ))
+      ) {
+        return {
+          ...expr,
+          columns,
+          from,
+          where,
+          groupBy,
+          having,
+          ...('unionType' in expr) ? {
+            order,
+            unions,
+          } : {},
+        };
+      }
+      return expr;
+    }
     case 'custom': {
       if (expr.customType === 'andGraph') {
         let andGraph = expr as AndGraphExpression;
@@ -103,9 +188,6 @@ function traverseStep(expr: Expression, map: (expr: Expression) => Expression) {
       }
     }
     /*
-    case 'aggregation':
-    case 'exists':
-    case 'select':
     case 'string':
     case 'number':
     case 'boolean':
