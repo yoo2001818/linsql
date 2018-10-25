@@ -102,26 +102,6 @@ function traverseStep(expr: Expression, map: (expr: Expression) => Expression) {
         }
         return entry;
       });
-      let from = expr.from.map(entry => {
-        let table = entry.table;
-        if (entry.table.value.type === 'select') {
-          let newSelect = map(entry.table.value);
-          if (newSelect !== entry.table.value) {
-            table = { ...table, value: newSelect as SelectStatement };
-          }
-        }
-        if (entry.type !== 'normal') {
-          let where = map(entry.where);
-          if (table !== entry.table || where !== entry.where) {
-            return { ...entry, table };
-          }
-        } else {
-          if (table !== entry.table) {
-            return { ...entry, table };
-          }
-        }
-        return entry;
-      });
       let where = map(expr.where);
       let groupBy = expr.groupBy.map(v => map(v));
       let having = map(expr.having);
@@ -140,7 +120,6 @@ function traverseStep(expr: Expression, map: (expr: Expression) => Expression) {
       }
       if (
         expr.columns.some((v, i) => v !== columns[i]) ||
-        expr.from.some((v, i) => v !== from[i]) ||
         where !== expr.where ||
         expr.groupBy.some((v, i) => v !== groupBy[i]) ||
         having !== expr.having ||
@@ -152,7 +131,6 @@ function traverseStep(expr: Expression, map: (expr: Expression) => Expression) {
         return {
           ...expr,
           columns,
-          from,
           where,
           groupBy,
           having,

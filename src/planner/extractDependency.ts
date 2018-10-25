@@ -39,6 +39,13 @@ export default function extractDependency(
   stmt: SelectStatement,
 ): DependencySelectStatement {
   rewrite(stmt, {}, (expr, state) => {
+    switch (expr.type) {
+      case 'select':
+      // Replace it with constant
+      case 'aggregation':
+      case 'exists':
+      case 'in':
+    }
     return { expr, state };
   });
 }
