@@ -38,11 +38,21 @@ type DependencySelectStatement = SelectStatement & {
 export default function extractDependency(
   stmt: SelectStatement,
 ): DependencySelectStatement {
+  let aggregations: Aggregation[] = [];
+  let subquerys: Subquery[] = [];
   rewrite(stmt, {}, (expr, state) => {
     switch (expr.type) {
       case 'select':
-      // Replace it with constant
+        // Replace it with constant
+        break;
       case 'aggregation':
+        aggregations.push({
+          name: aggregations.length.toString(),
+          method: expr.name,
+          distinct: expr.qualifier === 'distinct',
+          value: expr.value,
+        });
+        break;
       case 'exists':
       case 'in':
     }
