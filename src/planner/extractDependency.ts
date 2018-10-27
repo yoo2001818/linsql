@@ -14,7 +14,7 @@ type Aggregation = {
 // Subquery inside 'FROM' clause are not required to be inside here too.
 type Subquery = {
   name: string,
-  value: DependencySelectStatement[],
+  value: DependencySelectStatement,
 } & ({
   type: 'any' | 'all',
   op: '!=' | '=' | '>=' | '>' | '<=' | '<',
@@ -40,21 +40,63 @@ export default function extractDependency(
 ): DependencySelectStatement {
   let aggregations: Aggregation[] = [];
   let subquerys: Subquery[] = [];
+  let newTable: string = null;
   rewrite(stmt, {}, (expr, state) => {
     switch (expr.type) {
-      case 'select':
-        // Replace it with constant
-        break;
-      case 'aggregation':
+      case 'aggregation': {
+        newTable = '_aggr' + aggregations.length.toString();
         aggregations.push({
-          name: aggregations.length.toString(),
+          name: newTable,
           method: expr.name,
           distinct: expr.qualifier === 'distinct',
           value: expr.value,
         });
         break;
-      case 'exists':
-      case 'in':
+      }
+      case 'select':
+        // Replace it with constant
+        newTable = '_subquery' + subquerys.length.toString();
+        subquerys.push({
+          type: 'scalar',
+          name: newTable,
+          value: extractDependency(expr),
+        });
+        break;
+      case 'binary': {
+        // TODO Implement any / all
+        break; 
+      }
+      case 'exists': {
+        newTable = '_subquery' + subquerys.length.toString();
+        subquerys.push({
+          type: 'exists',
+          name: newTable,
+          value: extractDependency(expr.value),
+        });
+        break;
+      }
+      case 'in': {
+        if (expr.values.type !== 'select') break;
+        newTable = '_subquery' + subquerys.length.toString();
+        subquerys.push({
+          type: 'any',
+          value: extractDependency(expr.values),
+          left: expr.target,
+          op: '=',
+          name: newTable,
+        });
+        break;
+      }
+    }
+    if (newTable != null) {
+      return {
+        expr: {
+          type: 'column',
+          table: newTable,
+          name: 'value',
+        },
+        state,
+      }
     }
     return { expr, state };
   });
