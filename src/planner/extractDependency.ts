@@ -31,6 +31,20 @@ type DependencySelectStatement = SelectStatement & {
 };
 
 /**
+ * Ensures only one column exists in the select statement
+ * @param stmt 
+ */
+function ensureOneColumn(stmt: SelectStatement) {
+  if (stmt.columns.length > 1) {
+    throw new Error('Only one column should be in scalar subquery');
+  }
+  let first = stmt.columns[0].value;
+  if (first.type === 'wildcard') {
+    throw new Error('No wildcard is allowed in scalar subquery');
+  }
+}
+
+/**
  * Rewrites select statement to move subquerys and aggregations to top level,
  * and rewrites expression to use virtual values instead of them.
  * @param stmt 
@@ -55,6 +69,7 @@ export default function extractDependency(
       }
       case 'select':
         // Replace it with constant
+        ensureOneColumn(expr);
         newTable = '_subquery' + subquerys.length.toString();
         subquerys.push({
           type: 'scalar',
@@ -67,6 +82,7 @@ export default function extractDependency(
         break; 
       }
       case 'exists': {
+        ensureOneColumn(expr.value);
         newTable = '_subquery' + subquerys.length.toString();
         subquerys.push({
           type: 'exists',
@@ -77,6 +93,7 @@ export default function extractDependency(
       }
       case 'in': {
         if (expr.values.type !== 'select') break;
+        ensureOneColumn(expr.values);
         newTable = '_subquery' + subquerys.length.toString();
         subquerys.push({
           type: 'any',
@@ -100,4 +117,5 @@ export default function extractDependency(
     }
     return { expr, state };
   });
+  return { ...stmt, aggregations, subquerys };
 }
