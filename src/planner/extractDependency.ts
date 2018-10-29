@@ -1,4 +1,4 @@
-import { Expression, SelectStatement } from 'yasqlp';
+import { Expression, SelectStatement, SelectTable, TableRef } from 'yasqlp';
 import { rewrite } from '../expression/traverse';
 
 type Aggregation = {
@@ -25,7 +25,17 @@ type Subquery = {
   type: 'scalar',
 });
 
-type DependencySelectStatement = SelectStatement & {
+type Omit<T, K> = Pick<T, Exclude<keyof T, K>>;
+
+type DependencySelectTable = Omit<SelectTable, 'table'> & {
+  table: {
+    name?: null | string,
+    value: TableRef | DependencySelectStatement,
+  },
+};
+
+type DependencySelectStatement = Omit<SelectStatement, 'from'> & {
+  from: DependencySelectTable[],
   aggregations: Aggregation[],
   subquerys: Subquery[],
 };
@@ -52,6 +62,18 @@ function ensureOneColumn(stmt: SelectStatement) {
 export default function extractDependency(
   stmt: SelectStatement,
 ): DependencySelectStatement {
+  let from: DependencySelectTable[] = stmt.from.map(entry => {
+    if (entry.table.value.type === 'select') {
+      return {
+        ...entry,
+        table: {
+          ...entry.table,
+          value: extractDependency(entry.table.value),
+        },
+      };
+    }
+    return entry;
+  });
   let aggregations: Aggregation[] = [];
   let subquerys: Subquery[] = [];
   let newTable: string = null;
@@ -117,5 +139,5 @@ export default function extractDependency(
     }
     return { expr, state };
   });
-  return { ...stmt, aggregations, subquerys };
+  return { ...stmt, from, aggregations, subquerys };
 }
