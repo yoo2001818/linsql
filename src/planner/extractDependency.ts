@@ -62,7 +62,7 @@ function ensureOneColumn(stmt: SelectStatement) {
 export default function extractDependency(
   stmt: SelectStatement,
 ): DependencySelectStatement {
-  let from: DependencySelectTable[] = stmt.from.map(entry => {
+  let from: DependencySelectTable[] = stmt.from && stmt.from.map(entry => {
     if (entry.table.value.type === 'select') {
       return {
         ...entry,
@@ -72,12 +72,12 @@ export default function extractDependency(
         },
       };
     }
-    return entry;
+    return entry as DependencySelectTable;
   });
   let aggregations: Aggregation[] = [];
   let subquerys: Subquery[] = [];
-  let newTable: string = null;
-  rewrite(stmt, {}, (expr, state) => {
+  let newStmt = rewrite(stmt, {}, (expr, state) => {
+    let newTable: string = null;
     switch (expr.type) {
       case 'aggregation': {
         newTable = '_aggr' + aggregations.length.toString();
@@ -90,6 +90,7 @@ export default function extractDependency(
         break;
       }
       case 'select':
+        if (expr === stmt) break;
         // Replace it with constant
         ensureOneColumn(expr);
         newTable = '_subquery' + subquerys.length.toString();
@@ -138,6 +139,6 @@ export default function extractDependency(
       }
     }
     return { expr, state };
-  });
-  return { ...stmt, from, aggregations, subquerys };
+  }) as SelectStatement;
+  return { ...newStmt, from, aggregations, subquerys };
 }

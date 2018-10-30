@@ -103,7 +103,7 @@ function traverseStep(expr: Expression, map: (expr: Expression) => Expression) {
         return entry;
       });
       let where = map(expr.where);
-      let groupBy = expr.groupBy.map(v => map(v));
+      let groupBy = expr.groupBy && expr.groupBy.map(v => map(v));
       let having = map(expr.having);
       let order: SelectBasicStatement['order'] = null;
       let unions: SelectBasicStatement['unions'] = null;
@@ -121,11 +121,11 @@ function traverseStep(expr: Expression, map: (expr: Expression) => Expression) {
       if (
         expr.columns.some((v, i) => v !== columns[i]) ||
         where !== expr.where ||
-        expr.groupBy.some((v, i) => v !== groupBy[i]) ||
+        (expr.groupBy && expr.groupBy.some((v, i) => v !== groupBy[i])) ||
         having !== expr.having ||
         (!('unionType' in expr) && (
-          expr.order.some((v, i) => v !== order[i]) ||
-          expr.unions.some((v, i) => v !== unions[i])
+          (expr.order && expr.order.some((v, i) => v !== order[i])) ||
+          (expr.unions && expr.unions.some((v, i) => v !== unions[i]))
         ))
       ) {
         return {
