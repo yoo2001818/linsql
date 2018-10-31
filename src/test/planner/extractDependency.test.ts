@@ -92,4 +92,44 @@ describe('extractDependency', () => {
         aggregations: [],
       });
   });
+  it('should handle aggregations', () => {
+    expect(extractDependency(getSelect('SELECT COUNT(*);')))
+      .toEqual({
+        ...getSelect('SELECT _aggr0.value;'),
+        subquerys: [],
+        aggregations: [{
+          name: '_aggr0',
+          method: 'count',
+          distinct: false,
+          value: getColumn('SELECT *;'),
+        }],
+      });
+    expect(extractDependency(getSelect('SELECT COUNT(DISTINCT *);')))
+      .toEqual({
+        ...getSelect('SELECT _aggr0.value;'),
+        subquerys: [],
+        aggregations: [{
+          name: '_aggr0',
+          method: 'count',
+          distinct: true,
+          value: getColumn('SELECT *;'),
+        }],
+      });
+    expect(extractDependency(getSelect('SELECT MAX(a.name) a, MIN(a.name) b;')))
+      .toEqual({
+        ...getSelect('SELECT _aggr0.value a, _aggr1.value b;'),
+        subquerys: [],
+        aggregations: [{
+          name: '_aggr0',
+          method: 'max',
+          distinct: false,
+          value: getColumn('SELECT a.name;'),
+        }, {
+          name: '_aggr1',
+          method: 'min',
+          distinct: false,
+          value: getColumn('SELECT a.name;'),
+        }],
+      });
+  });
 });
