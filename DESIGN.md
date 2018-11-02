@@ -459,6 +459,23 @@ SELECT a.id, b.id
   JOIN c b ON a.id = c.id;
 ```
 
+### Single table query retrieval
+Before considering joins, we need a way to represent a single table retrieval.
+
+Selecting tables are performed in this order, if full scan is specified:
+
+1. Fetching tables (This includes subquery.)
+2. Running where (pre)
+3. Selecting columns
+4. Running where (post)
+5. Running order by (pre)
+6. Running aggregations
+7. Running having
+8. Running order by (post)
+
+If joins are specified, 1 / 2 / 4, should be performed as 'fetching tables',
+and subquerys should be resolved in 'fetching tables'.
+
 ### Calculate join dependency graph
 After optimization, we can finally generate join dependency graph.
 
