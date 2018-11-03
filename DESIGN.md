@@ -476,6 +476,20 @@ Selecting tables are performed in this order, if full scan is specified:
 If joins are specified, 1 / 2 / 4, should be performed as 'fetching tables',
 and subquerys should be resolved in 'fetching tables'.
 
+### Fetching tables
+Fetching tables is the most important part of query planning; all optimizations
+happen here.
+
+We've converted all columns into AND graph before. This can be used to extract
+SARGs and join relations more easily.
+
+First table retrieval can be done using indexes, or full scan. Each required
+table's retrival cost must be calculated.
+
+Then, other tables can use nested join, or hash join, or merge join. Merge join
+and hash joins requires table scanning once, while nested join can use index
+match.
+
 ### Calculate join dependency graph
 After optimization, we can finally generate join dependency graph.
 
