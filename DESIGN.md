@@ -490,6 +490,30 @@ Then, other tables can use nested join, or hash join, or merge join. Merge join
 and hash joins requires table scanning once, while nested join can use index
 match.
 
+Join dependency graph depends on AND graph between other tables. Consider
+this case:
+
+```sql
+SELECT * FROM a
+  JOIN b ON a.id = b.id
+  JOIN c ON b.id = c.id;
+```
+
+INNER JOIN can be merged to single AND, but any other joins can't be merged,
+since NULL is used for special case. Take a look at this:
+
+```sql
+SELECT * FROM a
+  LEFT JOIN b ON a.id = b.id
+  WHERE b.id IS NULL;
+```
+
+a.id = b.id can't be merged into WHERE at all.
+
+Sometimes converting OR into UNION can be much cheaper. To calculate this,
+it should calculate the cost of running SELECT for each OR predicate. If that's
+cheaper than any other AND, it should be used.
+
 ### Calculate join dependency graph
 After optimization, we can finally generate join dependency graph.
 
