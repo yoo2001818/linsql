@@ -514,6 +514,67 @@ Sometimes converting OR into UNION can be much cheaper. To calculate this,
 it should calculate the cost of running SELECT for each OR predicate. If that's
 cheaper than any other AND, it should be used.
 
+### Table fetch representation
+While linsql AST, and dependency extracted tables can represent table fetching,
+it's horribly inefficient - we need to rewrite it to more physical-like form.
+
+Consider this query for example:
+```sql
+SELECT * FROM a
+JOIN b ON a.id = b.id
+WHERE a.age = 11 AND b.name = 'test';
+```
+
+All these variants are possible, which is quite a lot.
+We have these 20 options:
+
+- Fetch A first  
+  Use either one of: 
+  - Use index to filter `a.age = 11`
+  - Filter `a.age = 11` after fetching
+  And either one of:
+  - Nested join B
+    - Fetch B using `b.id = a.id`
+    - Fetch B using `b.name = 'test'`
+    - Fetch B using full scan
+  - Hash join B
+    - Use index to filter `b.name = 'test'`
+    - Filter `b.name = 'test'` after fetching
+- Fetch B first  
+  Use either one of:
+  - Use index to filter `b.name = 'test'`
+  - Filter `b.name = 'test'` after fetching
+  And either one of:
+  - Nested join A
+    - Fetch A using `b.id = a.id`
+    - Fetch A using `a.age = 11`
+    - Fetch A using full scan
+  - Hash join A
+    - Use index to filter `a.age = 11`
+    - Filter `a.age = 11` after fetching
+
+Of course, we have to express them using some sort of pipe. For example, let's
+choose this case:
+
+- Fetch A first, using index to filter `a.age = 11`
+- Hash join B on `b.id = a.id`, using index to filter `b.name = 'test'`
+
+This boils down to this graph:
+
+```
+  Fetch A          Fetch B
+(a.age = 11)   (b.name = 'test')
+    |                |
+    |                |
+    |           Hash Generate
+    |              (b.id)
+    |                |
+    +---------- Hash Match
+                   (a.id)
+                     |
+                  Output
+```
+
 ### Calculate join dependency graph
 After optimization, we can finally generate join dependency graph.
 
