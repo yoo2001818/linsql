@@ -575,6 +575,31 @@ This boils down to this graph:
                   Output
 ```
 
+Graph should be expressed recursively, from the output node.
+Above graph would be expressed like this:
+
+```js
+{
+  type: 'hashMatch',
+  cost: 12,
+  totalCost: 24,
+  on: [{ type: 'column', table: 'a', column: 'id' }],
+  left: {
+    type: 'fullScan',
+    table: 'a',
+    filter: {
+      type: 'compare',
+      op: '=',
+      left: { type: 'column', table: 'a', column: 'age' },
+      right: { type: 'number', value: 11 },
+    },
+  },
+  right: {
+    type: 'hashGenerate',
+  },
+}
+```
+
 ### Calculate join dependency graph
 After optimization, we can finally generate join dependency graph.
 
