@@ -586,6 +586,8 @@ Above graph would be expressed like this:
   on: [{ type: 'column', table: 'a', column: 'id' }],
   left: {
     type: 'fullScan',
+    cost: 10,
+    totalCost: 10,
     table: 'a',
     filter: {
       type: 'compare',
@@ -594,8 +596,24 @@ Above graph would be expressed like this:
       right: { type: 'number', value: 11 },
     },
   },
-  right: {
+  hash: {
     type: 'hashGenerate',
+    cost: 0,
+    totalCost: 0,
+    on: [{ type: 'column', table: 'b', column: 'id' }],
+    value: {
+      type: 'indexScan',
+      cost: 2,
+      totalCost: 2,
+      table: 'b',
+      name: 'b.name',
+      criteria: {
+        type: 'compare',
+        op: '=',
+        left: { type: 'column', table: 'b', column: 'name' },
+        right: { type: 'string', value: 'test },
+      },
+    }
   },
 }
 ```
