@@ -1,7 +1,7 @@
 import { Expression, SelectStatement, SelectTable, TableRef } from 'yasqlp';
 import { rewrite } from '../expression/traverse';
 
-type Aggregation = {
+export type Aggregation = {
   name: string,
   method: string,
   distinct: boolean,
@@ -12,7 +12,7 @@ type Aggregation = {
 // need to evaluate it inside 'subquery processor'. Therefore, all contextual
 // information needs to be inside here.
 // Subquery inside 'FROM' clause are not required to be inside here too.
-type Subquery = {
+export type Subquery = {
   name: string,
   value: DependencySelectStatement,
 } & ({
@@ -27,14 +27,14 @@ type Subquery = {
 
 type Omit<T, K> = Pick<T, Exclude<keyof T, K>>;
 
-type DependencySelectTable = Omit<SelectTable, 'table'> & {
+export type DependencySelectTable = Omit<SelectTable, 'table'> & {
   table: {
     name?: null | string,
     value: TableRef | DependencySelectStatement,
   },
 };
 
-type DependencySelectStatement = Omit<SelectStatement, 'from'> & {
+export type DependencySelectStatement = Omit<SelectStatement, 'from'> & {
   from: DependencySelectTable[],
   aggregations: Aggregation[],
   subquerys: Subquery[],

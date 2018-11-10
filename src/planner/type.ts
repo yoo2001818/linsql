@@ -6,9 +6,14 @@ export type BasePlan = {
   totalCost: number,
 };
 
+export type ConstantPlan = {
+  type: 'constant',
+};
+
 export type FullScanPlan = BasePlan & {
   type: 'fullScan',
   table: TableRef,
+  name: string,
 };
 
 export type FilterPlan = BasePlan & {
@@ -99,8 +104,8 @@ export type HashJoinPlan = BasePlan & {
   leftCriteria: Expression[][],
 };
 
-export type HashPlan = HashGeneratePlan & HashMergePlan;
+export type HashPlan = HashGeneratePlan | HashMergePlan;
 
-export type SelectPlan = FullScanPlan & FilterPlan & SortPlan &
-  AggregatePlan & LimitPlan & OutputPlan & UniquePlan & UnionPlan &
-  NestedJoinPlan & MergeJoinPlan & HashJoinPlan;
+export type SelectPlan = ConstantPlan | FullScanPlan | FilterPlan | SortPlan |
+  AggregatePlan | LimitPlan | OutputPlan | UniquePlan | UnionPlan |
+  NestedJoinPlan | MergeJoinPlan | HashJoinPlan;
