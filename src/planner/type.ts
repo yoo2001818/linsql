@@ -104,8 +104,13 @@ export type HashJoinPlan = BasePlan & {
   leftCriteria: Expression[][],
 };
 
+export type MaterializePlan = BasePlan & {
+  type: 'materialize',
+  input: SelectPlan,
+}
+
 export type HashPlan = HashGeneratePlan | HashMergePlan;
 
 export type SelectPlan = ConstantPlan | FullScanPlan | FilterPlan | SortPlan |
   AggregatePlan | LimitPlan | OutputPlan | UniquePlan | UnionPlan |
-  NestedJoinPlan | MergeJoinPlan | HashJoinPlan;
+  NestedJoinPlan | MergeJoinPlan | HashJoinPlan | MaterializePlan;
