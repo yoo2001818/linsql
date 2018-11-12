@@ -1,3 +1,5 @@
+import { TableRef } from 'yasqlp';
+
 import { DependencySelectStatement } from './extractDependency';
 import { SelectPlan } from './type';
 
@@ -14,6 +16,27 @@ export default function plan(stmt: DependencySelectStatement): SelectPlan {
   // We'll simplify this problem by doing:
   // 1. Calculating costs for fetching each table initially.
   // 2. Calculating costs for joining, n to n.
+  // 3. Calculating optimal path for joining.
+
+  // Of course, in order to establish graph, we have to search inside WHERE AST
+  // to find what's available.
+  // Nevertheless, we can still plan for each table's entry, and retrieve
+  // the connected graph for them.
+  
+  // For the sake of simplicity, it'd be best to execute table's own WHERE here
+  // if possible.
+
+  // If OR is specified, it'd be a good idea to split the query and calculate
+  // the cost for UNIONing both queries.
+  let tables = stmt.from.map(from => {
+    let table = from.table;
+    if (table.value.type === 'select') {
+      return plan(table.value);
+    } else {
+      return planFetch(table.value, table.name);
+    }
+  });
+
   if (stmt.from.length > 0) {
     let first = stmt.from.find(from => from.type === 'normal');
     if (first.table.value.type === 'table') {
@@ -46,8 +69,14 @@ export default function plan(stmt: DependencySelectStatement): SelectPlan {
   return current;
 }
 
-export function planFetch(): SelectPlan {
-
+export function planFetch(table: TableRef, name?: string): SelectPlan {
+  return {
+    type: 'fullScan',
+    table: table,
+    name: name || table.name, 
+    cost: 0,
+    totalCost: 0,
+  }
 }
 
 export function planJoin(): SelectPlan {
