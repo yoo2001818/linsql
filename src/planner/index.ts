@@ -1,4 +1,4 @@
-import { TableRef } from 'yasqlp';
+import { TableRef, Expression } from 'yasqlp';
 
 import { DependencySelectStatement } from './extractDependency';
 import { SelectPlan } from './type';
@@ -81,4 +81,32 @@ export function planFetch(table: TableRef, name?: string): SelectPlan {
 
 export function planJoin(): SelectPlan {
 
+}
+
+export function findTableSargs(table: string, where: Expression): Expression {
+  // This should find sargable expressions for the given table.
+  // OR must not be used in here, as it can't be used for table lookup anyway,
+  // and optimizer can run UNION on it later.
+  // However, OR for only single column is okay.
+  let output: Expression[] = [];
+  // We'll only traverse directly SARGable entries, and logical operators.
+  function traverseStep(expr: Expression) {
+    switch (expr.type) {
+      case 'logical':
+        if (expr.op === '&&') {
+          expr.values.map(child => traverseStep(child));
+        }
+        break;
+      case 'binary':
+        if (expr.left.type === 'column') {
+
+        }
+        break;
+      case 'custom':
+        if (expr.customType === 'andGraph') {
+          // TODO
+        }
+    }
+  }
+  return output;
 }
