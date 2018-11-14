@@ -2,6 +2,7 @@ import { TableRef, Expression } from 'yasqlp';
 
 import { DependencySelectStatement } from './extractDependency';
 import { SelectPlan } from './type';
+import { AndGraphExpression } from '../expression/optimize/graph';
 
 export default function plan(stmt: DependencySelectStatement): SelectPlan {
   // From here, we generate graph from fetching the table to running unions.
@@ -94,19 +95,44 @@ export function findTableSargs(table: string, where: Expression): Expression {
     switch (expr.type) {
       case 'logical':
         if (expr.op === '&&') {
-          expr.values.map(child => traverseStep(child));
+          expr.values.forEach(child => traverseStep(child));
         }
         break;
       case 'binary':
-        if (expr.left.type === 'column') {
-
+        if (expr.left.type === 'column' && expr.left.table === table) {
+          output.push(expr);
+        } else if (expr.right.type === 'column' && expr.right.table === table) {
+          output.push(expr);
         }
         break;
       case 'custom':
         if (expr.customType === 'andGraph') {
-          // TODO
+          let andGraph = expr as AndGraphExpression;
+          andGraph.nodes.forEach(node => {
+            if (!node.names.some(name =>
+              name.type === 'column' && name.table === table)
+            ) {
+              return;
+            }
+            node.constraints.map(expr => {
+              output.push(expr);
+            });
+            // TODO It's possible to aggregate connections to get range, but
+            // let's not do that for now.
+          });
         }
     }
   }
-  return output;
+  traverseStep(where);
+  if (output.length >= 2) {
+    return {
+      type: 'logical',
+      op: '&&',
+      values: output,
+    };
+  } else if (output.length === 1) {
+    return output[0];
+  } else {
+    return null;
+  }
 }
