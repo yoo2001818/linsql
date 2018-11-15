@@ -81,7 +81,7 @@ export function planFetch(table: TableRef, name?: string): SelectPlan {
 }
 
 export function planJoin(): SelectPlan {
-
+  return null;
 }
 
 export function findTableSargs(table: string, where: Expression): Expression {
