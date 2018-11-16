@@ -1,4 +1,5 @@
 import { TableRef, Expression } from 'yasqlp';
+import deepEqual from 'deep-equal';
 
 import { DependencySelectStatement } from './extractDependency';
 import { SelectPlan } from './type';
@@ -109,13 +110,23 @@ export function findTableSargs(table: string, where: Expression): Expression {
         if (expr.customType === 'andGraph') {
           let andGraph = expr as AndGraphExpression;
           andGraph.nodes.forEach(node => {
-            if (!node.names.some(name =>
-              name.type === 'column' && name.table === table)
-            ) {
-              return;
-            }
+            let targetName = node.names.find(name =>
+              name.type === 'column' && name.table === table);
+            if (targetName == null) return;
             node.constraints.map(expr => {
-              output.push(expr);
+              if (expr.type === 'compare') {
+                let newLeft = expr.left;
+                if (node.names.some(name => deepEqual(name, newLeft))) {
+                  newLeft = targetName;
+                }
+                let newRight = expr.right;
+                if (node.names.some(name => deepEqual(name, newRight))) {
+                  newRight = targetName;
+                }
+                output.push({ ...expr, left: newLeft, right: newRight });
+              } else {
+                output.push(expr);
+              }
             });
             // TODO It's possible to aggregate connections to get range, but
             // let's not do that for now.
