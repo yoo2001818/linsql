@@ -33,7 +33,17 @@ export default function findTableSargs(
             let targetName = node.names.find(name =>
               name.type === 'column' && name.table === table);
             if (targetName == null) return;
-            node.constraints.map(expr => {
+            node.names.forEach(name => {
+              if (name !== targetName) {
+                output.push({
+                  type: 'compare',
+                  op: '=',
+                  left: targetName,
+                  right: name,
+                });
+              }
+            });
+            node.constraints.forEach(expr => {
               if (expr.type === 'compare') {
                 let newLeft = expr.left;
                 if (node.names.some(name => deepEqual(name, newLeft))) {
