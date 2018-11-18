@@ -2,6 +2,7 @@ import { TableRef } from 'yasqlp';
 
 import { DependencySelectStatement } from './extractDependency';
 import { SelectPlan } from './type';
+import findTableSargs from './findTableSargs';
 
 export default function plan(stmt: DependencySelectStatement): SelectPlan {
   // From here, we generate graph from fetching the table to running unions.
@@ -28,6 +29,27 @@ export default function plan(stmt: DependencySelectStatement): SelectPlan {
 
   // If OR is specified, it'd be a good idea to split the query and calculate
   // the cost for UNIONing both queries.
+
+  // 1. Extract the SARGs. To do that, we 'fudge' WHERE and ON clauses into
+  //    single expression. This is valid for inner joins, but for other joins,
+  //    this is not valid and requires special processing.
+  // 
+  // For example, SELECT * FROM a LEFT JOIN b ON a.id = b.id, performs left
+  // join, which means if there are no corresponding entry on B for A, a null
+  // is joined instead. This greatly limits the optimization - we are unable to
+  // join from B's side.
+
+  let sargs = stmt.from.map(from => {
+    let name = from.table.name;
+    if (name == null) {
+      if (from.table.value.type === 'table') {
+        name = from.table.value.name;
+      } else {
+        throw new Error('Subquery must have defined name');
+      }
+    }
+    return findTableSargs(name, stmt.where);
+  });
   let tables = stmt.from.map(from => {
     let table = from.table;
     if (table.value.type === 'select') {
