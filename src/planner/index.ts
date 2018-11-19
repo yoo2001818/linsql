@@ -38,6 +38,19 @@ export default function plan(stmt: DependencySelectStatement): SelectPlan {
   // join, which means if there are no corresponding entry on B for A, a null
   // is joined instead. This greatly limits the optimization - we are unable to
   // join from B's side.
+  // While that is true, however, we can use a.id = b.id while joining -
+  // this also means that A or B can be fetched using that index.
+  // One problem is that, a LEFT JOIN b ON a.id = b.id WHERE b.id IS NULL,
+  // becomes unfetchable if everything is merged to one. There are many
+  // broken invariants when merging besides this, so it'll be better to
+  // separate ON and WHERE. (But, we just have to be careful about NULL
+  // handling)
+  let joinExprs = stmt.from.map(from => {
+    if ('where' in from) {
+      return from.where;
+    }
+    return null;
+  }).filter(v => v != null);
 
   let sargs = stmt.from.map(from => {
     let name = from.table.name;
@@ -48,7 +61,11 @@ export default function plan(stmt: DependencySelectStatement): SelectPlan {
         throw new Error('Subquery must have defined name');
       }
     }
-    return findTableSargs(name, stmt.where);
+    return findTableSargs(name, {
+      type: 'logical',
+      op: '&&',
+      values: [...joinExprs, stmt.where],
+    });
   });
   let tables = stmt.from.map(from => {
     let table = from.table;
