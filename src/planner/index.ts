@@ -1,7 +1,8 @@
-import { TableRef } from 'yasqlp';
+import { TableRef, Expression } from 'yasqlp';
 
 import { DependencySelectStatement } from './extractDependency';
 import { SelectPlan } from './type';
+import optimize from '../expression/optimize';
 import findTableSargs from './findTableSargs';
 
 export default function plan(stmt: DependencySelectStatement): SelectPlan {
@@ -23,34 +24,33 @@ export default function plan(stmt: DependencySelectStatement): SelectPlan {
   // to find what's available.
   // Nevertheless, we can still plan for each table's entry, and retrieve
   // the connected graph for them.
-  
-  // For the sake of simplicity, it'd be best to execute table's own WHERE here
-  // if possible.
 
   // If OR is specified, it'd be a good idea to split the query and calculate
   // the cost for UNIONing both queries.
 
-  // 1. Extract the SARGs. To do that, we 'fudge' WHERE and ON clauses into
-  //    single expression. This is valid for inner joins, but for other joins,
-  //    this is not valid and requires special processing.
-  // 
-  // For example, SELECT * FROM a LEFT JOIN b ON a.id = b.id, performs left
-  // join, which means if there are no corresponding entry on B for A, a null
-  // is joined instead. This greatly limits the optimization - we are unable to
-  // join from B's side.
-  // While that is true, however, we can use a.id = b.id while joining -
-  // this also means that A or B can be fetched using that index.
-  // One problem is that, a LEFT JOIN b ON a.id = b.id WHERE b.id IS NULL,
-  // becomes unfetchable if everything is merged to one. There are many
-  // broken invariants when merging besides this, so it'll be better to
-  // separate ON and WHERE. (But, we just have to be careful about NULL
-  // handling)
-  let joinExprs = stmt.from.map(from => {
-    if ('where' in from) {
-      return from.where;
+  // 1. Extract the SARGs.
+  // To do that, we 'fudge' WHERE and ON clauses into
+  // single expression. This is valid for inner joins, but for other joins,
+  // this is not valid and requires special processing. In order to merge
+  // them, we have to ensure that the right side / left side is not null.
+  // However, if that happens, it also means that it can be converted into
+  // regular join. 
+  let convertedFrom = stmt.from.map(from => {
+    if (from.type === 'left' || from.type === 'right') {
+      // TODO Check if WHERE references the row without using IS NULL.
+      // If so, it's safe to convert them into regular joins.
     }
-    return null;
-  }).filter(v => v != null);
+    return from;
+  });
+
+  let whereExpr = optimize({
+    type: 'logical',
+    op: '&&',
+    values: [
+      stmt.where,
+      ...stmt.from.map(from => from.type === 'inner' ? from.where : null),
+    ].filter(v => v != null),
+  });
 
   let sargs = stmt.from.map(from => {
     let name = from.table.name;
@@ -61,12 +61,18 @@ export default function plan(stmt: DependencySelectStatement): SelectPlan {
         throw new Error('Subquery must have defined name');
       }
     }
-    return findTableSargs(name, {
-      type: 'logical',
-      op: '&&',
-      values: [...joinExprs, stmt.where],
-    });
+    let tableWhereExpr = whereExpr;
+    if (from.type === 'left' || from.type === 'right') {
+      // TODO Optimize... optimizer.
+      tableWhereExpr = optimize({
+        type: 'logical',
+        op: '&&',
+        values: [whereExpr, from.where],
+      });
+    }
+    return findTableSargs(name, tableWhereExpr);
   });
+  
   let tables = stmt.from.map(from => {
     let table = from.table;
     if (table.value.type === 'select') {

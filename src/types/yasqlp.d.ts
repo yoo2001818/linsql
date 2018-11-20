@@ -90,13 +90,10 @@ declare module 'yasqlp' {
   };
   export type SelectTable = {
     table: { name?: null | string, value: TableRef | SelectStatement },
-  } & ({
-    type: 'normal',
-  } | {
-    type: 'cross' | 'inner' | 'left' | 'right',
+    type: 'normal' | 'cross' | 'inner' | 'left' | 'right',
     where?: null | Expression,
     natural?: boolean,
-  });
+  };
   export type OrderByRef = {
     value: Expression,
     direction?: null | 'asc' | 'desc',
