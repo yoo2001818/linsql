@@ -73,12 +73,13 @@ export default function plan(stmt: DependencySelectStatement): SelectPlan {
     return findTableSargs(name, tableWhereExpr);
   });
   
-  let tables = stmt.from.map(from => {
+  let tables = stmt.from.map((from, i) => {
     let table = from.table;
     if (table.value.type === 'select') {
+      // TODO We should think about sending sargs data into subquery
       return plan(table.value);
     } else {
-      return planFetch(table.value, table.name);
+      return planFetch(table.value, table.name, sargs[i]);
     }
   });
 
@@ -114,7 +115,9 @@ export default function plan(stmt: DependencySelectStatement): SelectPlan {
   return current;
 }
 
-export function planFetch(table: TableRef, name?: string): SelectPlan {
+export function planFetch(
+  table: TableRef, name?: string, sarg: Expression,
+): SelectPlan {
   return {
     type: 'fullScan',
     table: table,
