@@ -83,6 +83,9 @@ export default function plan(stmt: DependencySelectStatement): SelectPlan {
     }
   });
 
+  // 2. Calculate join path. This can be O(n^2), or we can just use known
+  // join path specified in AND graph.
+
   if (stmt.from.length > 0) {
     let first = stmt.from.find(from => from.type === 'normal');
     if (first.table.value.type === 'table') {
