@@ -121,13 +121,24 @@ export default function plan(stmt: DependencySelectStatement): SelectPlan {
 export function planFetch(
   table: TableRef, name?: string, sarg: Expression,
 ): SelectPlan {
-  return {
+  // It is fetcher's responsibility to actually filter the resources.
+  let input: SelectPlan = {
     type: 'fullScan',
     table: table,
     name: name || table.name, 
     cost: 0,
     totalCost: 0,
+  };
+  if (sarg != null) {
+    input = {
+      type: 'filter',
+      value: sarg,
+      input: input,
+      cost: 0,
+      totalCost: 0,
+    };
   }
+  return input;
 }
 
 export function planJoin(): SelectPlan {
