@@ -102,10 +102,23 @@ export default function plan(stmt: DependencySelectStatement): SelectPlan {
   } else {
     current = { type: 'constant' };
   }
+
+  // 3. Attach table-wise where.
   if (stmt.where != null) {
     current = {
       type: 'filter',
       value: stmt.where,
+      input: current,
+      cost: 0,
+      totalCost: 0,
+    };
+  }
+
+  if ('orderBy' in stmt) {
+    // Attach order by.
+    current = {
+      type: 'sort',
+      order: stmt.orderBy,
       input: current,
       cost: 0,
       totalCost: 0,
@@ -119,7 +132,7 @@ export default function plan(stmt: DependencySelectStatement): SelectPlan {
 }
 
 export function planFetch(
-  table: TableRef, name?: string, sarg: Expression,
+  table: TableRef, name?: string, sarg?: Expression,
 ): SelectPlan {
   // It is fetcher's responsibility to actually filter the resources.
   let input: SelectPlan = {
