@@ -2,6 +2,7 @@ import { Expression } from 'yasqlp';
 import deepEqual from 'deep-equal';
 
 import { AndGraphExpression } from '../expression/optimize/graph';
+import { getDependencies } from '../expression/op';
 
 export default function findTableSargs(
   table: string, where: Expression,
@@ -17,6 +18,16 @@ export default function findTableSargs(
       case 'logical':
         if (expr.op === '&&') {
           expr.values.forEach(child => traverseStep(child));
+        } else if (expr.op === '||') {
+          // If the expression only contains WHERE for the table, it can be
+          // sargable.
+          let dependencies = getDependencies(expr);
+          if (dependencies.every((v) => {
+            if (v.type === 'select') return false;
+            return v.table === table;
+          })) {
+            output.push(expr);
+          }
         }
         break;
       case 'binary':
