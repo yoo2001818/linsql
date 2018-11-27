@@ -1,3 +1,5 @@
+import { SelectStatement } from 'yasqlp';
+
 export interface Index {
   name: string,
   order: [string, boolean][],
@@ -24,3 +26,29 @@ export interface ArrayTable extends BaseTable {
   count: number,
   fetch: (low?: any[], high?: any[]) => Iterator<Promise<any[]>>,
 }
+
+export interface FileTable extends BaseTable {
+  order: [string, boolean][],
+  count: number,
+  distKeys: string[],
+  fetch: (distLow?: any[], distHigh?: any[], low?: any[], high?: any[]) =>
+    Iterator<Promise<any[]>>,
+}
+
+export interface RemoteSQLTable extends BaseTable {
+  count: number,
+  fetch: (sql: SelectStatement) => Iterator<Promise<any[]>>,
+}
+
+export interface RemoteRESTTable extends BaseTable {
+  endpoint: string,
+  pkName: string,
+  searchableColumns: string[],
+  detailColumns: string[],
+  fetch: (low?: any, high?: any, lte?: boolean, gte?: boolean) =>
+    Iterator<Promise<any[]>>,
+  fetchDetail: (low?: any, high?: any, lte?: boolean, gte?: boolean) => 
+    Iterator<Promise<any[]>>,
+}
+
+export type Table = NormalTable | ArrayTable | FileTable;
