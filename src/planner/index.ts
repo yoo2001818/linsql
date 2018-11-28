@@ -1,12 +1,14 @@
-import { TableRef, Expression } from 'yasqlp';
+import { TableRef, Expression, SelectUnionStatement } from 'yasqlp';
 
-import { DependencySelectStatement, SelectUnionStatement }
-  from './extractDependency';
+import { DependencySelectStatement } from './extractDependency';
 import { SelectPlan } from './type';
 import optimize from '../expression/optimize';
 import findTableSargs from './findTableSargs';
+import Database from '../database';
 
-export default function plan(stmt: DependencySelectStatement): SelectPlan {
+export default function plan(
+  database: Database, stmt: DependencySelectStatement,
+): SelectPlan {
   // From here, we generate graph from fetching the table to running unions.
   // 1. Fetching tables (This includes subquery.)
   let current: SelectPlan;
@@ -78,9 +80,9 @@ export default function plan(stmt: DependencySelectStatement): SelectPlan {
     let table = from.table;
     if (table.value.type === 'select') {
       // TODO We should think about sending sargs data into subquery
-      return plan(table.value);
+      return plan(database, table.value);
     } else {
-      return planFetch(table.value, table.name, sargs[i]);
+      return planFetch(database, table.value, table.name, sargs[i]);
     }
   });
 
@@ -98,7 +100,7 @@ export default function plan(stmt: DependencySelectStatement): SelectPlan {
         totalCost: 0,
       };
     } else {
-      current = plan(first.table.value);
+      current = plan(database, first.table.value);
     }
   } else {
     current = { type: 'constant' };
@@ -133,9 +135,10 @@ export default function plan(stmt: DependencySelectStatement): SelectPlan {
 }
 
 export function planFetch(
-  table: TableRef, name?: string, sarg?: Expression,
+  database: Database, table: TableRef, name?: string, sarg?: Expression,
 ): SelectPlan {
   // It is fetcher's responsibility to actually filter the resources.
+  let tableObj = database.getTable(table.name);
   let input: SelectPlan = {
     type: 'fullScan',
     table: table,

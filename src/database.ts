@@ -1,8 +1,11 @@
 import { Table } from './table';
 
-export class Database {
-  tables: Table[];
-  async getTable(name: string): Promise<Table> {
-    return null;
+export default class Database {
+  tables: { [key: string]: Table } = {};
+  addTable(name: string, value: Table) {
+    this.tables[name] = value;
+  }
+  getTable(name: string): Table {
+    return this.tables[name];
   }
 }
