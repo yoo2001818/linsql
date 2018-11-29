@@ -9,11 +9,13 @@ export interface Index {
 }
 
 export interface BaseTable {
+  type: string,
   name: string,
   columns: string[],
 }
 
 export interface NormalTable extends BaseTable {
+  type: 'normal',
   indexes: Index[],
   order: [string, boolean][],
   count: number,
@@ -22,12 +24,14 @@ export interface NormalTable extends BaseTable {
 }
 
 export interface ArrayTable extends BaseTable {
+  type: 'array',
   order: [string, boolean][],
   count: number,
   fetch: (low?: any[], high?: any[]) => Iterator<Promise<any[]>>,
 }
 
 export interface FileTable extends BaseTable {
+  type: 'file',
   order: [string, boolean][],
   count: number,
   distKeys: string[],
@@ -36,11 +40,13 @@ export interface FileTable extends BaseTable {
 }
 
 export interface RemoteSQLTable extends BaseTable {
+  type: 'remoteSql',
   count: number,
   fetch: (sql: SelectStatement) => Iterator<Promise<any[]>>,
 }
 
 export interface RemoteRESTTable extends BaseTable {
+  type: 'remoteRest',
   endpoint: string,
   pkName: string,
   searchableColumns: string[],

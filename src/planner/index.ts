@@ -135,13 +135,28 @@ export default function plan(
 }
 
 export function planFetch(
-  database: Database, table: TableRef, name?: string, sarg?: Expression,
+  database: Database, tableRef: TableRef, name?: string, sarg?: Expression,
 ): SelectPlan {
   // It is fetcher's responsibility to actually filter the resources.
-  let tableObj = database.getTable(table.name);
+  let table = database.getTable(tableRef.name);
+  if (table == null) {
+    throw new Error('Unknown table ' + tableRef.name);
+  }
+  switch (table.type) {
+    case 'normal':
+      // Check if indices and PKs are usable.
+      break;
+    case 'array':
+      // Check if binary search is possible.
+      break;
+    case 'file':
+      // TODO
+      break;
+  }
+  // Check SARGs related to the table's indices.
   let input: SelectPlan = {
     type: 'fullScan',
-    table: table,
+    table: tableRef,
     name: name || table.name, 
     cost: 0,
     totalCost: 0,
