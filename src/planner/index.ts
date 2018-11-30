@@ -1,4 +1,4 @@
-import { TableRef, Expression, SelectUnionStatement } from 'yasqlp';
+import { TableRef, Expression, SelectBasicStatement } from 'yasqlp';
 
 import { DependencySelectStatement } from './extractDependency';
 import { SelectPlan } from './type';
@@ -117,11 +117,11 @@ export default function plan(
     };
   }
 
-  if ('orderBy' in stmt) {
+  if ('order' in stmt) {
     // Attach order by.
     current = {
       type: 'sort',
-      order: (stmt as SelectUnionStatement).orderBy,
+      order: (stmt as any as SelectBasicStatement).order,
       input: current,
       cost: 0,
       totalCost: 0,
