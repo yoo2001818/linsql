@@ -1,6 +1,7 @@
 import { TableRef, Expression, SelectBasicStatement } from 'yasqlp';
 
-import { DependencySelectStatement } from './extractDependency';
+import { DependencySelectStatement, DependencySelectStatementBasic }
+  from './extractDependency';
 import { SelectPlan } from './type';
 import optimize from '../expression/optimize';
 import findTableSargs from './findTableSargs';
@@ -121,7 +122,7 @@ export default function plan(
     // Attach order by.
     current = {
       type: 'sort',
-      order: (stmt as any as SelectBasicStatement).order,
+      order: stmt.order,
       input: current,
       cost: 0,
       totalCost: 0,

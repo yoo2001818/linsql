@@ -1,4 +1,10 @@
-import { Expression, SelectStatement, SelectTable, TableRef } from 'yasqlp';
+import {
+  Expression,
+  SelectBasicStatement,
+  SelectUnionStatement,
+  SelectTable,
+  TableRef,
+} from 'yasqlp';
 import { rewrite } from '../expression/traverse';
 
 export type Aggregation = {
@@ -34,11 +40,19 @@ export type DependencySelectTable = Omit<SelectTable, 'table'> & {
   },
 };
 
-export type DependencySelectStatement = Omit<SelectStatement, 'from'> & {
+export type DependencySelectStatementBase = {
   from: DependencySelectTable[],
   aggregations: Aggregation[],
   subquerys: Subquery[],
-};
+}
+
+export type DependencySelectStatementBasic =
+  Omit<SelectBasicStatement, 'from'> & DependencySelectStatementBase;
+export type DependencySelectStatementUnion =
+  Omit<SelectUnionStatement, 'from'> & DependencySelectStatementBase;
+
+export type DependencySelectStatement =
+  DependencySelectStatementBasic | DependencySelectStatementUnion;
 
 /**
  * Ensures only one column exists in the select statement
