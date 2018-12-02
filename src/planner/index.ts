@@ -143,9 +143,26 @@ export function planFetch(
   if (table == null) {
     throw new Error('Unknown table ' + tableRef.name);
   }
+  if (sarg == null) {
+    // Just do full scan....
+    return {
+      type: 'fullScan',
+      table: tableRef,
+      name: name || table.name,
+      cost: table.count,
+      totalCost: table.count,
+    };
+  }
   switch (table.type) {
     case 'normal':
       // Check if indices and PKs are usable.
+      // Unwrap sarg expression...
+      if (sarg.type === 'logical' && sarg.op === '&&') {
+        sarg.values.forEach((value) => {
+
+        });
+      } else if (sarg.type === 'compare') {
+      }
       break;
     case 'array':
       // Check if binary search is possible.
