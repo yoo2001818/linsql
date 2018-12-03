@@ -4,7 +4,8 @@ import { Expression,
 import { AndGraphExpression } from './optimize/graph';
 
 function traverseStep(expr: Expression, map: (expr: Expression) => Expression) {
- switch (expr.type) {
+  if (expr == null) return null;
+  switch (expr.type) {
     case 'logical': {
       let values = expr.values.map(map);
       if (expr.values.some((v, i) => v !== values[i])) {
@@ -102,9 +103,9 @@ function traverseStep(expr: Expression, map: (expr: Expression) => Expression) {
         }
         return entry;
       });
-      let where = map(expr.where);
+      let where = expr.where && map(expr.where);
       let groupBy = expr.groupBy && expr.groupBy.map(v => map(v));
-      let having = map(expr.having);
+      let having = expr.having && map(expr.having);
       let order: SelectBasicStatement['order'] = null;
       let unions: SelectBasicStatement['unions'] = null;
       if (!('unionType' in expr)) {
