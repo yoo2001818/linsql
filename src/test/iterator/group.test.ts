@@ -25,7 +25,7 @@ describe('GroupIterator', () => {
     ], ['userId']);
   });
   it('should run group by correctly', async () => {
-    const aggrName = 'sum-row[\'table\'][\'amount\']';
+    const aggrName = 0;
     iter = new GroupIterator(iterInput,
       getColumns('SELECT table.userId;').map(v => v.value),
       getColumns('SELECT SUM(table.amount);').map(v => v.value),
@@ -38,7 +38,7 @@ describe('GroupIterator', () => {
     ]);
   });
   it('should run group by correctly (count)', async () => {
-    const aggrName = 'count-row[\'table\'][\'amount\']';
+    const aggrName = 0;
     iter = new GroupIterator(iterInput,
       getColumns('SELECT table.userId;').map(v => v.value),
       getColumns('SELECT COUNT(table.amount);').map(v => v.value),
@@ -51,7 +51,7 @@ describe('GroupIterator', () => {
     ]);
   });
   it('should run group by correctly (min)', async () => {
-    const aggrName = 'min-row[\'table\'][\'amount\']';
+    const aggrName = 0;
     iter = new GroupIterator(iterInput,
       getColumns('SELECT table.userId;').map(v => v.value),
       getColumns('SELECT MIN(table.amount);').map(v => v.value),
@@ -64,7 +64,7 @@ describe('GroupIterator', () => {
     ]);
   });
   it('should run group by correctly (max)', async () => {
-    const aggrName = 'max-row[\'table\'][\'amount\']';
+    const aggrName = 0;
     iter = new GroupIterator(iterInput,
       getColumns('SELECT table.userId;').map(v => v.value),
       getColumns('SELECT MAX(table.amount);').map(v => v.value),
@@ -77,7 +77,7 @@ describe('GroupIterator', () => {
     ]);
   });
   it('should be rewindable', async () => {
-    const aggrName = 'sum-row[\'table\'][\'amount\']';
+    const aggrName = 0;
     iter = new GroupIterator(iterInput,
       getColumns('SELECT table.userId;').map(v => v.value),
       getColumns('SELECT SUM(table.amount);').map(v => v.value),
@@ -92,8 +92,7 @@ describe('GroupIterator', () => {
     ]);
   });
   it('should be rewindable with parent row', async () => {
-    const aggrName = 'sum-(row[\'table\'][\'amount\']+' +
-      'parent[\'parent\'][\'x\'])';
+    const aggrName = 0;
     iter = new GroupIterator(iterInput,
       getColumns('SELECT table.userId;').map(v => v.value),
       getColumns('SELECT SUM(table.amount + parent.x);').map(v => v.value),

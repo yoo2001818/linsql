@@ -128,7 +128,7 @@ describe('rewriteSargable', () => {
     expect(rewriteSargable(getColumn('SELECT a / b = 2;')))
       .toEqual(getColumn('SELECT a = 2 * b;'));
     expect(rewriteSargable(getColumn('SELECT a / 2 + b * 3 = 4;')))
-      .toEqual(getColumn('SELECT a = b * -6 + 8;'));
+      .toEqual(getColumn('SELECT a = -(b * 6) + 8;'));
   });
   it('should prefer columns', () => {
     expect(rewriteSargable(getColumn('SELECT (SELECT 1) + a.a + 3 = 0;')))

@@ -2,6 +2,7 @@ import {
   Expression,
   SelectBasicStatement,
   SelectUnionStatement,
+  SelectStatement,
   SelectTable,
   TableRef,
 } from 'yasqlp';
