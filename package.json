@@ -21,18 +21,18 @@
   },
   "homepage": "https://github.com/yoo2001818/linsql#readme",
   "devDependencies": {
-    "@types/jest": "^23.3.10",
-    "@types/node": "^10.12.11",
-    "jest": "^23.6.0",
-    "ts-jest": "^23.10.5",
-    "ts-node": "^7.0.1",
-    "tslint": "^5.11.0",
+    "@types/jest": "^24.0.11",
+    "@types/node": "^11.11.3",
+    "jest": "^24.5.0",
+    "ts-jest": "^24.0.0",
+    "ts-node": "^8.0.3",
+    "tslint": "^5.14.0",
     "tslint-config-standard": "^8.0.1",
-    "typescript": "^3.2.1"
+    "typescript": "^3.3.3333"
   },
   "dependencies": {
     "@types/deep-equal": "^1.0.1",
-    "@types/lodash.clonedeep": "^4.5.4",
+    "@types/lodash.clonedeep": "^4.5.6",
     "deep-equal": "^1.0.1",
     "lodash.clonedeep": "^4.5.0",
     "yasqlp": "^0.1.5"
