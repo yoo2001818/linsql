@@ -135,9 +135,10 @@ export default function plan(
   return current;
 }
 
+// TODO Order by
 export function planFetch(
   database: Database, tableRef: TableRef, name?: string, sarg?: Expression,
-): SelectPlan {
+): SelectPlan[] {
   // It is fetcher's responsibility to actually filter the resources.
   let table = database.getTable(tableRef.name);
   if (table == null) {
@@ -145,13 +146,13 @@ export function planFetch(
   }
   if (sarg == null) {
     // Just do full scan....
-    return {
+    return [{
       type: 'fullScan',
       table: tableRef,
       name: name || table.name,
       cost: table.count,
       totalCost: table.count,
-    };
+    }];
   }
   switch (table.type) {
     case 'normal':
@@ -188,7 +189,7 @@ export function planFetch(
       totalCost: 0,
     };
   }
-  return input;
+  return [input];
 }
 
 export function planJoin(): SelectPlan {

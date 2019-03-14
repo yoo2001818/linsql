@@ -5,7 +5,7 @@
   "main": "lib/index.js",
   "scripts": {
     "test": "npm run jest && npm run tslint",
-    "jest": "jest --forceExit --coverage --verbose",
+    "jest": "jest --coverage --verbose",
     "build": "tsc",
     "watch": "tsc -w",
     "tslint": "tslint -c tslint.js -p tsconfig.json"
