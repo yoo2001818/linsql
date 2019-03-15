@@ -46,3 +46,14 @@ describe('rewriteBetweenIn', () => {
       .toEqual(getWhere('SELECT 1 WHERE a IN (SELECT 3);'));
   });
 });
+
+describe('rewriteRange', () => {
+  it('should run simple cases', () => {
+    expect(rewriteNot(getWhere('SELECT 1 WHERE a = 1 AND a = 2;')))
+      .toEqual(getWhere('SELECT 1 WHERE FALSE;'));
+    expect(rewriteNot(getWhere('SELECT 1 WHERE a > 1 AND a > 5;')))
+      .toEqual(getWhere('SELECT 1 WHERE a > 5;'));
+    expect(rewriteNot(getWhere('SELECT 1 WHERE a > 1 AND a >= 1;')))
+      .toEqual(getWhere('SELECT 1 WHERE a > 1;'));
+  });
+});
