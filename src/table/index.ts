@@ -1,8 +1,14 @@
 import { SelectStatement } from 'yasqlp';
 
+export interface Order {
+  key: string,
+  type: 'string' | 'number',
+  order: boolean,
+}
+
 export interface Index {
   name: string,
-  order: [string, boolean][],
+  order: Order[],
   unique: boolean,
   cardinality: number,
   count: number,
@@ -17,7 +23,7 @@ export interface BaseTable {
 export interface NormalTable extends BaseTable {
   type: 'normal',
   indexes: Index[],
-  order: [string, boolean][],
+  order: Order[],
   count: number,
   fetch: (indexName?: string, low?: any[], high?: any[],
     lte?: boolean, gte?: boolean) => Iterator<Promise<any[]>>,
@@ -25,14 +31,14 @@ export interface NormalTable extends BaseTable {
 
 export interface ArrayTable extends BaseTable {
   type: 'array',
-  order: [string, boolean][],
+  order: Order[],
   count: number,
   fetch: (low?: any[], high?: any[]) => Iterator<Promise<any[]>>,
 }
 
 export interface FileTable extends BaseTable {
   type: 'file',
-  order: [string, boolean][],
+  order: Order[],
   count: number,
   distKeys: string[],
   fetch: (distLow?: any[], distHigh?: any[], low?: any[], high?: any[]) =>
