@@ -1,10 +1,8 @@
 import { TableRef, Expression, SelectBasicStatement } from 'yasqlp';
 
-import { DependencySelectStatement, DependencySelectStatementBasic }
-  from './extractDependency';
+import { DependencySelectStatement } from './extractDependency';
 import { SelectPlan } from './type';
 import optimize from '../expression/optimize';
-import findTableSargs from './findTableSargs';
 import Database from '../database';
 
 export default function plan(
@@ -56,34 +54,25 @@ export default function plan(
     ].filter(v => v != null),
   });
 
-  let sargs = stmt.from.map(from => {
-    let name = from.table.name;
-    if (name == null) {
-      if (from.table.value.type === 'table') {
-        name = from.table.value.name;
-      } else {
-        throw new Error('Subquery must have defined name');
-      }
+  let tables = stmt.from.map((from, i) => {
+    let table = from.table;
+    if (from.table.name == null && table.value.type !== 'table') {
+      throw new Error('Subquery must have defined name');
     }
-    let tableWhereExpr = whereExpr;
+    let tableExpr = whereExpr;
     if (from.type === 'left' || from.type === 'right') {
       // TODO Optimize... optimizer.
-      tableWhereExpr = optimize({
+      tableExpr = optimize({
         type: 'logical',
         op: '&&',
         values: [whereExpr, from.where],
       });
     }
-    return findTableSargs(name, tableWhereExpr);
-  });
-  
-  let tables = stmt.from.map((from, i) => {
-    let table = from.table;
     if (table.value.type === 'select') {
       // TODO We should think about sending sargs data into subquery
       return plan(database, table.value);
     } else {
-      return planFetch(database, table.value, table.name, sargs[i]);
+      return planFetch(database, table.value, table.name, tableExpr);
     }
   });
 
