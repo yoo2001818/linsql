@@ -31,9 +31,12 @@ interface RangeResult {
   set: RangeSet<any>,
 }
 
-export default function findSargsRangeIndex(
-  table: NormalTable, index: Index, where: Expression,
-): RangeResult {
+export default function findSargsRange(
+  name: string, table: NormalTable, where: Expression,
+) {
+  const sets: RangeResult[] = [];
+
+  let columns: { [name: string]: RangeSet<any> } = {};
   // We have to handle more than one columns - therefore, we have to check
   // toset can be fulfilled. If we can't, the leftmost column can be used
   // anyway...
@@ -42,31 +45,34 @@ export default function findSargsRangeIndex(
   // and only rightmost column can use range queries like '>', '<'.
   // Note that we don't have to use all the columns - we still can use
   // range queries when the columns are not used completely.
-  function traverseStep(set: RangeSet<any>, expr: Expression): RangeSet<any> {
+  function traverseStep(expr: Expression) {
     switch (expr.type) {
       case 'logical':
         if (expr.op === '&&') {
-          return expr.values.reduce(
-            (prev, child) => traverseStep(prev, child),
-            set);
+          expr.values.forEach(child => traverseStep(child));
         } else if (expr.op === '||') {
           // Run two indices and check if they're mergeable - 
         }
         break;
       case 'binary':
-        if (expr.left.type === 'column' && expr.left.table === table.name) {
+        if (expr.left.type === 'column' && expr.left.table === name) {
+          if (expr.right.type === 'number') {
+            columns[expr.left.name] = numberSet.and(
+              columns[expr.left.name] || [],
+              numberSet.gt(expr.right.value),
+            );
+          }
+        }
+        if (expr.right.type === 'column' && expr.right.table === name) {
+          if (expr.left.type === 'number') {
+            columns[expr.right.name] = numberSet.and(
+              columns[expr.right.name] || [],
+              numberSet.gt(expr.left.value),
+            );
+          }
         }
         break;
     }
   }
-  traverseStep([], where);
-}
-
-export default function findSargsRange(
-  table: NormalTable, where: Expression,
-) {
-  const sets: RangeResult[] = [];
-  for (let index of table.indexes) {
-    findSargsRangeIndex(table, index, where);
-  }
+  traverseStep(where);
 }
