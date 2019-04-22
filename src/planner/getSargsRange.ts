@@ -88,12 +88,29 @@ export default function findSargsRange(
   // 1. Pass the parent range set to expressions, and retrieve range set from
   //    each expression. While doing that, extract list of columns.
   // 2. Return the list of columns, and if it exists, return the range set.
+  // 
+  // .... 2nd revision
+  // We can think each expression to belong in these two states:
+  // 1. Not merged yet, i.e. Only single column is present
+  // 2. Merged, i.e. Only range can specify its state
+  //
+  // We need to consider this as two-step algorithm: First, group them to
+  // single columns as possible, then, merge all the composed ranges.
+  //
+  // a = 1 AND (b = 3 OR b = 5) AND a = 2 can be sorted in index order:
+  // -> a = 1 AND a = 2 AND (b = 3 OR b = 5)
+  // This can be processed into two ranges, then it can be merged.
+  // (a = 1 AND a = 2) AND (b = 3 OR b = 5)
 
-  function traverseStep(expr: Expression) {
+  function traverseStep(
+    index: Index,
+    expr: Expression,
+    parent: RangeSet<any> = [],
+  ): RangeSet<any> {
     switch (expr.type) {
       case 'logical':
         if (expr.op === '&&') {
-          expr.values.forEach(child => traverseStep(child));
+          expr.values.forEach(child => traverseStep(index, child));
         } else if (expr.op === '||') {
           // Run two indices and check if they're mergeable - 
         }
