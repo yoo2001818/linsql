@@ -62,46 +62,23 @@ export default function findSargsRange(
   // irrelevant columns. Of course, all columns must be present, but still it's
   // simple enough.
   // On the other hand, 'OR' requires all predicates are relevant to the index.
-  //
-  // To extract ranges from expressions, we have to fully traverse the AST.
-  // We'll need to traverse them at least twice - one to extract its
-  // dependencies, and one to extract range.
-  //
-  // - Current index.
-  // - Parent range set.
-  // - An output range set.
-  // - A lookahead (or rather, lookbefore) buffer.
-  // - An array specifying if we've met the column of the array's index.
-  // - Leftover set
-  //
-  // AND encounter
-  // 1. Extract list of columns from each expression.
-  //    - If its dependency is not met yet, put it in lookahead buffer, along
-  //      with needed column list.
-  //      TODO Take care of OR clause 
-  //    - If it's met, run it again to extract range set.
-  // 2. After traversing everything, if lookahead buffer is present, and its
-  //    dependencies are met, try to run them again.
-  // 3. Return the fulfilled column list and parent range set.
-  //
-  // OR encounter
-  // 1. Pass the parent range set to expressions, and retrieve range set from
-  //    each expression. While doing that, extract list of columns.
-  // 2. Return the list of columns, and if it exists, return the range set.
   // 
-  // .... 2nd revision
-  // We can think each expression to belong in these two states:
-  // 1. Not merged yet, i.e. Only single column is present
-  // 2. Merged, i.e. Only range can specify its state
+  // We need to note that range queries can only be done at the rightmost
+  // position, this is absolutely important.
+  // Other than non-range queries, we can consider them as a group, since
+  // their order shouldn't matter before picking an index.
   //
-  // We need to consider this as two-step algorithm: First, group them to
-  // single columns as possible, then, merge all the composed ranges.
+  // For example, (a = 1 AND b = 1 AND c = 1) AND d > 5
+  // d > 5 should be rightmost one, but others are not.
   //
-  // a = 1 AND (b = 3 OR b = 5) AND a = 2 can be sorted in index order:
-  // -> a = 1 AND a = 2 AND (b = 3 OR b = 5)
-  // This can be processed into two ranges, then it can be merged.
-  // (a = 1 AND a = 2) AND (b = 3 OR b = 5)
-
+  // (a = 1 OR b = 1 OR c = 1) is resolved using index merge, but this is out
+  // of scope for now.
+  //
+  // For this reason, ranges and non-ranges can be separated.
+  // However, this is not enough - we have to resolve
+  // a > 3 OR (a = 3 AND b > 5).
+  //
+  
   function traverseStep(
     index: Index,
     expr: Expression,
