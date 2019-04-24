@@ -78,6 +78,9 @@ export default function findSargsRange(
   // However, this is not enough - we have to resolve
   // a > 3 OR (a = 3 AND b > 5).
   //
+  // This can be implemented by putting expression inside equal predicate.
+  // Then it can be freely converted into ranges, no matter how the indices are
+  // constructed.
   
   function traverseStep(
     index: Index,
