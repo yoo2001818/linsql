@@ -77,20 +77,20 @@ interface RangeResult {
 // Then it can be freely converted into ranges, no matter how the indices are
 // constructed.
 // 
-// Therefore, we'll construct a tree-like structure using this.... per column.
+// Therefore, we'll construct a tree-like structure using this. This is very
+// similiar to the original AST, but has more information about its children.
+//
+// a > 3 OR (a = 3 AND b > 5)
+// OR -- a -- a > 3
+//    \     \ AND -- a = 3 (master)
+//    |     /       \ b > 5 (child)
+//    \- b /
 //
 // (a = 1 AND b = 1 AND c = 1) OR a > 3
-// a > 3 OR (a = 3 AND b > 5)
-//     
-//      root
-//       |
-//       a
-//     /   \
-// a > 3  a = 3
-//          |
-//          b
-//          |
-//        b > 5
+// OR -- a -- a > 3
+//    |     + AND -- a = 1
+//    |- b -|      | b = 1
+//    |- c -|      | c = 1
 
 interface RangeNode {
 
