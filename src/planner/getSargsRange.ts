@@ -92,19 +92,29 @@ interface RangeResult {
 //    |- b -|      | b = 1
 //    |- c -|      | c = 1
 
-interface RangeNode {
-
+interface RangeAndNode {
+  type: 'and',
+  columns: { [column: string]: RangeNode[] },
 }
+
+interface RangeOrNode {
+  type: 'or',
+  columns: { [column: string]: RangeNode[] },
+}
+
+interface RangeCompareNode {
+  type: 'binary',
+  column: string,
+  value: Expression,
+}
+
+type RangeNode = RangeAndNode | RangeOrNode | RangeCompareNode;
   
 export default function findSargsRange(
   name: string, table: NormalTable, where: Expression,
 ) {
   const sets: RangeResult[] = [];
-  function traverseStep(
-    index: Index,
-    expr: Expression,
-    parent: RangeSet<any> = [],
-  ): RangeSet<any> {
+  function traverseStep(expr: Expression): RangeNode {
     switch (expr.type) {
       case 'logical':
         if (expr.op === '&&') {
