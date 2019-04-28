@@ -1,4 +1,4 @@
-import { Expression } from 'yasqlp';
+import { Expression, ColumnValue } from 'yasqlp';
 import createRangeSetModule, { RangeSet } from 'range-set';
 
 import { NormalTable, Index } from '../table';
@@ -92,13 +92,8 @@ interface RangeResult {
 //    |- b -|      | b = 1
 //    |- c -|      | c = 1
 
-interface RangeAndNode {
-  type: 'and',
-  columns: { [column: string]: RangeNode[] },
-}
-
-interface RangeOrNode {
-  type: 'or',
+interface RangeParentNode {
+  type: 'and' | 'or',
   columns: { [column: string]: RangeNode[] },
 }
 
@@ -108,41 +103,45 @@ interface RangeCompareNode {
   value: Expression,
 }
 
-type RangeNode = RangeAndNode | RangeOrNode | RangeCompareNode;
+type RangeNode = RangeParentNode | RangeCompareNode;
   
 export default function findSargsRange(
   name: string, table: NormalTable, where: Expression,
 ) {
   const sets: RangeResult[] = [];
-  function traverseStep(expr: Expression): RangeNode {
+  function traverseStep(expr: Expression): RangeNode | null {
     switch (expr.type) {
-      case 'logical':
-        if (expr.op === '&&') {
-          expr.values.forEach(child => traverseStep(index, child));
-        } else if (expr.op === '||') {
-          // Run two indices and check if they're mergeable - 
+      case 'logical': {
+        let output: { [column: string]: RangeNode[] } = {};
+        for (let child of expr.values) {
+          const returned = traverseStep(child);
+          if (returned == null) continue;
+          switch (returned.type) {
+            case 'and':
+            case 'or':
+              // TODO Merge two
+              break;
+            case 'binary':
+              output[returned.column] = output[returned.column] || [];
+              output[returned.column].push(returned);
+              break;
+          }
         }
-        break;
-      case 'binary':
-        /*
+        return {
+          type: expr.op === '&&' ? 'and' : 'or',
+          columns: output,
+        };
+      }
+      case 'binary': {
         if (expr.left.type === 'column' && expr.left.table === name) {
-          if (expr.right.type === 'number') {
-            columns[expr.left.name] = numberSet.and(
-              columns[expr.left.name] || [],
-              numberSet.gt(expr.right.value),
-            );
+          if (['boolean', 'number', 'string'].includes(expr.right.type)) {
+
           }
         }
         if (expr.right.type === 'column' && expr.right.table === name) {
-          if (expr.left.type === 'number') {
-            columns[expr.right.name] = numberSet.and(
-              columns[expr.right.name] || [],
-              numberSet.gt(expr.left.value),
-            );
-          }
+
         }
-        */
-        break;
+      }
     }
   }
   traverseStep(where);
