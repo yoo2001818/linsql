@@ -2,6 +2,7 @@ import { Expression, ColumnValue } from 'yasqlp';
 import createRangeSetModule, { RangeSet } from 'range-set';
 
 import { NormalTable, Index } from '../table';
+import { AndGraphExpression } from '../expression/optimize/graph';
 
 const numberDescriptor = {
   compare: (a: number, b: number) => a - b,
@@ -108,7 +109,6 @@ type RangeNode = RangeParentNode | RangeCompareNode;
 export default function findSargsRange(
   name: string, table: NormalTable, where: Expression,
 ) {
-  const sets: RangeResult[] = [];
   function traverseStep(expr: Expression): RangeNode | null {
     switch (expr.type) {
       case 'logical': {
@@ -119,7 +119,13 @@ export default function findSargsRange(
           switch (returned.type) {
             case 'and':
             case 'or':
-              // TODO Merge two
+              // Merge two
+              for (let column in returned.columns) {
+                output[column] = [
+                  ...output[column] || [],
+                  ...returned.columns[column],
+                ];
+              }
               break;
             case 'binary':
               output[returned.column] = output[returned.column] || [];
@@ -135,14 +141,40 @@ export default function findSargsRange(
       case 'binary': {
         if (expr.left.type === 'column' && expr.left.table === name) {
           if (['boolean', 'number', 'string'].includes(expr.right.type)) {
-
+            return {
+              type: 'binary',
+              column: expr.left.name,
+              value: expr.right,
+            };
           }
         }
         if (expr.right.type === 'column' && expr.right.table === name) {
-
+          if (['boolean', 'number', 'string'].includes(expr.left.type)) {
+            return {
+              type: 'binary',
+              column: expr.right.name,
+              value: expr.left,
+            };
+          }
         }
+        break;
       }
+      case 'custom': 
+        if (expr.customType === 'andGraph') {
+          let andGraph = expr as AndGraphExpression;
+          let output: { [column: string]: RangeNode[] } = {};
+          andGraph.nodes.forEach(node => {
+            let targetName = node.names.find(v =>
+              v.type === 'column' && v.table === name);
+            if (targetName == null) return;
+            node.constraints.forEach(expr => {
+              traverseStep(expr);
+            });
+          });
+        }
+        break;
     }
   }
   traverseStep(where);
+  const sets: RangeResult[] = [];
 }
