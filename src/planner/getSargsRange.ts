@@ -109,7 +109,10 @@ type RangeNode = RangeParentNode | RangeCompareNode;
 export default function findSargsRange(
   name: string, table: NormalTable, where: Expression,
 ) {
-  function traverseStep(expr: Expression): RangeNode | null {
+  function traverseStep(
+    expr: Expression,
+    forceColumn?: string | null,
+  ): RangeNode | null {
     switch (expr.type) {
       case 'logical': {
         let output: { [column: string]: RangeNode[] } = {};
@@ -143,7 +146,7 @@ export default function findSargsRange(
           if (['boolean', 'number', 'string'].includes(expr.right.type)) {
             return {
               type: 'binary',
-              column: expr.left.name,
+              column: forceColumn || expr.left.name,
               value: expr.right,
             };
           }
@@ -152,7 +155,7 @@ export default function findSargsRange(
           if (['boolean', 'number', 'string'].includes(expr.left.type)) {
             return {
               type: 'binary',
-              column: expr.right.name,
+              column: forceColumn || expr.right.name,
               value: expr.left,
             };
           }
@@ -164,11 +167,15 @@ export default function findSargsRange(
           let andGraph = expr as AndGraphExpression;
           let output: { [column: string]: RangeNode[] } = {};
           andGraph.nodes.forEach(node => {
-            let targetName = node.names.find(v =>
+            let targetNames = node.names.filter(v =>
               v.type === 'column' && v.table === name);
-            if (targetName == null) return;
-            node.constraints.forEach(expr => {
-              traverseStep(expr);
+            targetNames.forEach(targetName => {
+              if (targetName.type !== 'column') return;
+              const { name } = targetName;
+              output[name] = output[name] || [];
+              node.constraints.forEach(expr => {
+                output[name].push(traverseStep(expr, targetName.name));
+              });
             });
           });
         }
