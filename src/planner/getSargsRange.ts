@@ -27,11 +27,6 @@ const stringDescriptor = {
   negativeInfinity: stringNegativeInfinity,
 };
 
-interface RangeResult {
-  name: string,
-  set: RangeSet<any>,
-}
-
 // We have to handle more than one columns, to be exact, N 'equal' columns
 // and one range columns.
 //
@@ -105,83 +100,106 @@ interface RangeCompareNode {
 }
 
 type RangeNode = RangeParentNode | RangeCompareNode;
-  
-export default function findSargsRange(
-  name: string, table: NormalTable, where: Expression,
-) {
-  function traverseStep(
-    expr: Expression,
-    forceColumn?: string | null,
-  ): RangeNode | null {
-    switch (expr.type) {
-      case 'logical': {
-        let output: { [column: string]: RangeNode[] } = {};
-        for (let child of expr.values) {
-          const returned = traverseStep(child);
-          if (returned == null) continue;
-          switch (returned.type) {
-            case 'and':
-            case 'or':
-              // Merge two
-              for (let column in returned.columns) {
-                output[column] = [
-                  ...output[column] || [],
-                  ...returned.columns[column],
-                ];
-              }
-              break;
-            case 'binary':
-              output[returned.column] = output[returned.column] || [];
-              output[returned.column].push(returned);
-              break;
-          }
+
+function getRangeNode(
+  name: string,
+  expr: Expression,
+  forceColumn?: string | null,
+): RangeNode | null {
+  switch (expr.type) {
+    case 'logical': {
+      let output: { [column: string]: RangeNode[] } = {};
+      for (let child of expr.values) {
+        const returned = getRangeNode(name, child);
+        if (returned == null) continue;
+        switch (returned.type) {
+          case 'and':
+          case 'or':
+            // Merge two
+            for (let column in returned.columns) {
+              output[column] = [
+                ...output[column] || [],
+                ...returned.columns[column],
+              ];
+            }
+            break;
+          case 'binary':
+            output[returned.column] = output[returned.column] || [];
+            output[returned.column].push(returned);
+            break;
         }
+      }
+      return {
+        type: expr.op === '&&' ? 'and' : 'or',
+        columns: output,
+      };
+    }
+    case 'binary': {
+      if (expr.left.type === 'column' &&
+        (forceColumn || expr.left.table === name) &&
+        ['boolean', 'number', 'string'].includes(expr.right.type)
+      ) {
         return {
-          type: expr.op === '&&' ? 'and' : 'or',
-          columns: output,
+          type: 'binary',
+          column: forceColumn || expr.left.name,
+          value: expr.right,
         };
       }
-      case 'binary': {
-        if (expr.left.type === 'column' && expr.left.table === name) {
-          if (['boolean', 'number', 'string'].includes(expr.right.type)) {
-            return {
-              type: 'binary',
-              column: forceColumn || expr.left.name,
-              value: expr.right,
-            };
-          }
-        }
-        if (expr.right.type === 'column' && expr.right.table === name) {
-          if (['boolean', 'number', 'string'].includes(expr.left.type)) {
-            return {
-              type: 'binary',
-              column: forceColumn || expr.right.name,
-              value: expr.left,
-            };
-          }
-        }
-        break;
+      if (expr.right.type === 'column' &&
+        (forceColumn || expr.right.table === name) &&
+        ['boolean', 'number', 'string'].includes(expr.left.type)
+      ) {
+        return {
+          type: 'binary',
+          column: forceColumn || expr.right.name,
+          value: expr.left,
+        };
       }
-      case 'custom': 
-        if (expr.customType === 'andGraph') {
-          let andGraph = expr as AndGraphExpression;
-          let output: { [column: string]: RangeNode[] } = {};
-          andGraph.nodes.forEach(node => {
-            let targetNames = node.names.filter(v =>
-              v.type === 'column' && v.table === name);
-            targetNames.forEach(targetName => {
-              if (targetName.type !== 'column') return;
-              const { name } = targetName;
-              output[name] = output[name] || [];
-              node.constraints.forEach(expr => {
-                output[name].push(traverseStep(expr, targetName.name));
-              });
+      break;
+    }
+    case 'custom': 
+      if (expr.customType === 'andGraph') {
+        let andGraph = expr as AndGraphExpression;
+        let output: { [column: string]: RangeNode[] } = {};
+        andGraph.nodes.forEach(node => {
+          let targetNames = node.names.filter(v =>
+            v.type === 'column' && v.table === name);
+          targetNames.forEach(targetName => {
+            if (targetName.type !== 'column') return;
+            const { name } = targetName;
+            output[name] = output[name] || [];
+            node.constraints.forEach(expr => {
+              output[name].push(getRangeNode(name, expr, targetName.name));
             });
           });
-        }
-        break;
-    }
+        });
+      }
+      break;
   }
-  traverseStep(where);
-  const sets: RangeResult[] = [];
+}
+
+interface SargScanNode {
+  index: Index,
+  values: RangeSet<any>,
+  cost: number,
+}
+
+interface SargMergeNode {
+  nodes: SargScanNode[],
+  cost: number,
+}
+
+type SargNode = SargScanNode | SargMergeNode;
+
+export default function findSargsRange(
+  name: string, table: NormalTable, where: Expression,
+): SargNode {
+  const node = getRangeNode(name, where);
+  // We've retrieved the range node - now, check if which index is most
+  // viable for the given range node.
+  //
+  // For AND node, we just have to try and find one best index.
+  // For OR node, we can try doing index merge - but we'd have to find perfect
+  // separation point! For the sake of simplicity, we'll use full scan if
+  // index merge is absolutely required.
 }
