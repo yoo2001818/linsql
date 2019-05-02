@@ -178,6 +178,31 @@ function getRangeNode(
   }
 }
 
+interface IndexTreeNode {
+  indexes: Index[],
+  children: { [key: string]: IndexTreeNode },
+}
+
+function getIndexTree(table: NormalTable): IndexTreeNode {
+  let output: IndexTreeNode = {
+    indexes: [],
+    children: {},
+  };
+  table.indexes.forEach((index) => {
+    output.indexes.push(index);
+    index.order.reduce((node, order) => {
+      let child = node.children[order.key];
+      if (child == null) {
+        child = node.children[order.key] = {
+          indexes: [],
+          children: {},
+        };
+      }
+      return child;
+    }, output);
+  });
+}
+
 interface SargScanNode {
   index: Index,
   values: RangeSet<any>,
