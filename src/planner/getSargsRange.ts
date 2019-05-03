@@ -198,13 +198,15 @@ function getIndexTree(table: NormalTable): IndexTreeNode {
           children: {},
         };
       }
+      child.indexes.push(index);
       return child;
     }, output);
   });
+  return output;
 }
 
 interface SargScanNode {
-  index: Index,
+  index: IndexTreeNode,
   values: RangeSet<any>,
   cost: number,
 }
@@ -216,15 +218,46 @@ interface SargMergeNode {
 
 type SargNode = SargScanNode | SargMergeNode;
 
-export default function findSargsRange(
-  name: string, table: NormalTable, where: Expression,
+function traverseNode(
+  node: RangeNode,
+  indexes: IndexTreeNode,
 ): SargNode {
-  const node = getRangeNode(name, where);
   // We've retrieved the range node - now, check if which index is most
   // viable for the given range node.
   //
   // For AND node, we just have to try and find one best index.
+  //
+  // We can try using each column first, then extend to other columns if it's
+  // satisifable (has no range query, has relations, etc.)
+  // For example, a = 1 AND b > 1 can use (a, b) index. Since a = 1 only uses
+  // equal query, we can just put b = 1 on the right.
+  //
   // For OR node, we can try doing index merge - but we'd have to find perfect
   // separation point! For the sake of simplicity, we'll use full scan if
   // index merge is absolutely required.
+  // 
+  // However, index merge is not required in one particular case - 
+  // a > 1 OR (a = 1 AND b > 3). Since a = 1 doesn't have range query, it can
+  // use (a, b) lookup. a > 1 also can use (a, b) lookup. Therefore it can be
+  // merged.
+  //
+  // To aid this, sarg scan node should return a list of next possible indexes.
+  //
+  switch (node.type) {
+    case 'and':
+      break;
+    case 'or':
+      break;
+    case 'binary':
+      break;
+  }
+}
+
+export default function findSargsRange(
+  name: string, table: NormalTable, where: Expression,
+): SargNode {
+  const node = getRangeNode(name, where);
+  const indexes = getIndexTree(table);
+
+  return traverseNode(node, indexes);
 }
