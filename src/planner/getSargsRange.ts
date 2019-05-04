@@ -1,8 +1,9 @@
-import { Expression, ColumnValue } from 'yasqlp';
+import { Expression, BooleanValue, StringValue, NumberValue } from 'yasqlp';
 import createRangeSetModule, { RangeSet } from 'range-set';
 
 import { NormalTable, Index } from '../table';
 import { AndGraphExpression } from '../expression/optimize/graph';
+import { rotateCompareOp } from '../expression/op';
 
 const numberDescriptor = {
   compare: (a: number, b: number) => a - b,
@@ -12,8 +13,8 @@ const numberDescriptor = {
   negativeInfinity: -Infinity,
 };
 
-const stringPositiveInfinity = Symbol('+Infinity');
-const stringNegativeInfinity = Symbol('-Infinity');
+const positiveInfinity = Symbol('+Infinity');
+const negativeInfinity = Symbol('-Infinity');
 
 const stringDescriptor = {
   compare: (a: string, b: string) => {
@@ -21,11 +22,49 @@ const stringDescriptor = {
     if (a < b) return -1;
     return 0;
   },
-  isPositiveInfinity: (v: any) => v === stringPositiveInfinity,
-  isNegativeInfinity: (v: any) => v === stringNegativeInfinity,
-  positiveInfinity: stringPositiveInfinity,
-  negativeInfinity: stringNegativeInfinity,
+  isPositiveInfinity: (v: any) => v === positiveInfinity,
+  isNegativeInfinity: (v: any) => v === negativeInfinity,
+  positiveInfinity: positiveInfinity,
+  negativeInfinity: negativeInfinity,
 };
+
+type IndexValue = (
+  | string
+  | number
+  | boolean
+  | typeof positiveInfinity
+  | typeof negativeInfinity
+)[];
+
+const rangeSetDescriptor = {
+  // Even though this is compared using > and <, each value must consist of
+  // same type.
+  compare: (a: IndexValue, b: IndexValue) => {
+    for (let i = 0; i < a.length; i += 1) {
+      const aValue = a[i];
+      const bValue = b[i];
+      if (aValue === positiveInfinity && bValue === positiveInfinity) return 0;
+      if (aValue === positiveInfinity) return 1;
+      if (bValue === positiveInfinity) return -1;
+      if (aValue === negativeInfinity && bValue === negativeInfinity) return 0;
+      if (aValue === negativeInfinity) return -1;
+      if (bValue === negativeInfinity) return 1;
+      if (typeof aValue !== typeof bValue) {
+        throw new Error('Uncomparable type');
+      }
+      if (aValue > bValue) return 1;
+      if (aValue < bValue) return -1;
+      return 0;
+    }
+    return 0;
+  },
+  isPositiveInfinity: (v: IndexValue) => v[0] === positiveInfinity,
+  isNegativeInfinity: (v: IndexValue) => v[0] === negativeInfinity,
+  positiveInfinity: [positiveInfinity as typeof positiveInfinity],
+  negativeInfinity: [negativeInfinity as typeof negativeInfinity],
+};
+
+const rangeSet = createRangeSetModule(rangeSetDescriptor);
 
 // We have to handle more than one columns, to be exact, N 'equal' columns
 // and one range columns.
@@ -93,13 +132,21 @@ interface RangeParentNode {
   columns: { [column: string]: RangeNode[] },
 }
 
+type RangeOp = '>' | '<' | '=' | '!=' | '>=' | '<=';
+type ValueExpression = BooleanValue | StringValue | NumberValue;
+
 interface RangeCompareNode {
-  type: 'binary',
+  type: 'compare',
   column: string,
-  value: Expression,
+  op: RangeOp,
+  value: ValueExpression,
 }
 
 type RangeNode = RangeParentNode | RangeCompareNode;
+
+function isRangeOp(op: string): op is RangeOp {
+  return ['>', '<', '=', '!=', '>=', '<='].includes(op);
+}
 
 function getRangeNode(
   name: string,
@@ -123,7 +170,7 @@ function getRangeNode(
               ];
             }
             break;
-          case 'binary':
+          case 'compare':
             output[returned.column] = output[returned.column] || [];
             output[returned.column].push(returned);
             break;
@@ -134,25 +181,29 @@ function getRangeNode(
         columns: output,
       };
     }
-    case 'binary': {
+    case 'compare': {
       if (expr.left.type === 'column' &&
         (forceColumn || expr.left.table === name) &&
-        ['boolean', 'number', 'string'].includes(expr.right.type)
+        ['boolean', 'number', 'string'].includes(expr.right.type) &&
+        isRangeOp(expr.op)
       ) {
         return {
-          type: 'binary',
+          type: 'compare',
           column: forceColumn || expr.left.name,
-          value: expr.right,
+          op: expr.op,
+          value: expr.right as ValueExpression,
         };
       }
       if (expr.right.type === 'column' &&
         (forceColumn || expr.right.table === name) &&
-        ['boolean', 'number', 'string'].includes(expr.left.type)
+        ['boolean', 'number', 'string'].includes(expr.left.type) &&
+        isRangeOp(expr.op)
       ) {
         return {
-          type: 'binary',
+          type: 'compare',
           column: forceColumn || expr.right.name,
-          value: expr.left,
+          op: rotateCompareOp(expr.op) as RangeOp,
+          value: expr.left as ValueExpression,
         };
       }
       break;
@@ -206,12 +257,14 @@ function getIndexTree(table: NormalTable): IndexTreeNode {
 }
 
 interface SargScanNode {
+  type: 'scan',
   index: IndexTreeNode,
   values: RangeSet<any>,
   cost: number,
 }
 
 interface SargMergeNode {
+  type: 'merge',
   nodes: SargScanNode[],
   cost: number,
 }
@@ -248,8 +301,34 @@ function traverseNode(
       break;
     case 'or':
       break;
-    case 'binary':
-      break;
+    case 'compare': {
+      const childIndexes = indexes.children[node.column];
+      if (childIndexes == null) {
+        // Well, there's nothing to do here.
+        return null;
+      }
+      let values;
+      switch (node.op) {
+        case '=':
+          values = rangeSet.eq([node.value.value]);
+        case '>':
+          values = rangeSet.gt([node.value.value]);
+        case '<':
+          values = rangeSet.lt([node.value.value]);
+        case '>=':
+          values = rangeSet.gte([node.value.value]);
+        case '<=':
+          values = rangeSet.lte([node.value.value]);
+        case '!=':
+          values = rangeSet.neq([node.value.value]);
+      }
+      return {
+        type: 'scan',
+        index: childIndexes,
+        values,
+        cost: 0,
+      };
+    }
   }
 }
 
