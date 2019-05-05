@@ -286,19 +286,29 @@ function getRangeNode(
     case 'custom': 
       if (expr.customType === 'andGraph') {
         let andGraph = expr as AndGraphExpression;
-        let output: { [column: string]: RangeNode[] } = {};
+        let columns: { [column: string]: true } = {};
+        let columnNodes: { [column: string]: RangeNode[] } = {};
         andGraph.nodes.forEach(node => {
           let targetNames = node.names.filter(v =>
             v.type === 'column' && v.table === name);
           targetNames.forEach(targetName => {
             if (targetName.type !== 'column') return;
             const { name } = targetName;
-            output[name] = output[name] || [];
+            columns[name] = true;
+            columnNodes[name] = columnNodes[name] || [];
             node.constraints.forEach(expr => {
-              output[name].push(getRangeNode(name, expr, targetName.name));
+              columnNodes[name].push(getRangeNode(name, expr, targetName.name));
             });
           });
         });
+        return {
+          type: 'and',
+          columns: Object.keys(columns),
+          columnNodes,
+          compoundNodes: andGraph.leftovers
+            .map(node => getRangeNode(name, node))
+            .filter(v => v != null),
+        };
       }
       break;
   }
@@ -370,12 +380,19 @@ function traverseNode(
   // To aid this, sarg scan node should return a list of next possible indexes.
   //
   switch (node.type) {
-    // Find = first, then fill the rest. (maybe we should distinguish between
-    // two...)
-    case 'and':
+    case 'and': {
+      // 1. Merge column-exclusive nodes first
+      // 2. Traverse compound nodes, then merge them if possible to do so.
+      //    (For example, a > 1 AND (a = 1 OR b > 1)) 
+      //    Merging between compound nodes is not possible for now.
+      //    We might have to do trim off unnecessary nodes.
+      // Merging is only possible if they share mutual index lookups.
       break;
-    case 'or':
+    }
+    case 'or': {
+      // 1. Traverse each node and merge them.
       break;
+    }
     case 'compare': {
       const childIndexes = indexes.children[node.column];
       if (childIndexes == null) {
