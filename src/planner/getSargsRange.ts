@@ -126,14 +126,34 @@ const rangeSet = createRangeSetModule(rangeSetDescriptor);
 //    |     + AND -- a = 1
 //    |- b -|      | b = 1
 //    |- c -|      | c = 1
-
-interface RangeParentNode {
-  type: 'and' | 'or',
-  columns: { [column: string]: RangeNode[] },
-}
+//
+// For OR, we need to find the cheapest division point. However, since it can be
+// implemented using index merging, (although it'd be merged using different
+// logic...) it shouldn't distinguish between nodes - it should just merge them
+// if possible.
+// 
+// AND is different, we can choose any of the nodes, and it'd be suffice anyway.
+// However, to generate optimized plan, we need to separate columns and try to
+// use 'largest' index if possible.
+//
+// We might end up comparing all the indexes in the table, but that's okay.
+//
 
 type RangeOp = '>' | '<' | '=' | '!=' | '>=' | '<=';
 type ValueExpression = BooleanValue | StringValue | NumberValue;
+
+interface RangeOrNode {
+  type: 'or',
+  columns: string[],
+  nodes: RangeNode[],
+}
+
+interface RangeAndNode {
+  type: 'and',
+  columns: string[],
+  columnNodes: { [column: string]: RangeNode[] },
+  compoundNodes: RangeNode[],
+}
 
 interface RangeCompareNode {
   type: 'compare',
@@ -142,7 +162,7 @@ interface RangeCompareNode {
   value: ValueExpression,
 }
 
-type RangeNode = RangeParentNode | RangeCompareNode;
+type RangeNode = RangeOrNode | RangeAndNode | RangeCompareNode;
 
 function isRangeOp(op: string): op is RangeOp {
   return ['>', '<', '=', '!=', '>=', '<='].includes(op);
@@ -155,31 +175,86 @@ function getRangeNode(
 ): RangeNode | null {
   switch (expr.type) {
     case 'logical': {
-      let output: { [column: string]: RangeNode[] } = {};
-      for (let child of expr.values) {
-        const returned = getRangeNode(name, child);
-        if (returned == null) continue;
-        switch (returned.type) {
-          case 'and':
-          case 'or':
-            // Merge two
-            for (let column in returned.columns) {
-              output[column] = [
-                ...output[column] || [],
-                ...returned.columns[column],
+      if (expr.op === '&&') {
+        let columns: { [column: string]: true } = {};
+        let columnNodes: { [column: string]: RangeNode[] } = {};
+        let compoundNodes: RangeNode[] = [];
+        for (let child of expr.values) {
+          const returned = getRangeNode(name, child);
+          if (returned == null) continue;
+          switch (returned.type) {
+            case 'and':
+              // Merge two nodes.
+              for (let column of returned.columns) {
+                columns[column] = true;
+              }
+              for (let column in returned.columnNodes) {
+                columnNodes[column] = [
+                  ...columnNodes[column] || [],
+                  ...returned.columnNodes[column],
+                ]
+              }
+              compoundNodes = [
+                ...compoundNodes,
+                ...returned.compoundNodes,
               ];
-            }
-            break;
-          case 'compare':
-            output[returned.column] = output[returned.column] || [];
-            output[returned.column].push(returned);
-            break;
+            case 'or':
+              if (returned.columns.length === 1) {
+                const column = returned.columns[0];
+                columns[column] = true;
+                columnNodes[column] = columnNodes[column] || [];
+                columnNodes[column].push(returned);
+              } else {
+                for (let column of returned.columns) {
+                  columns[column] = true;
+                }
+                compoundNodes.push(returned);
+              }
+              break;
+            case 'compare':
+              columns[returned.column] = true;
+              columnNodes[returned.column] = columnNodes[returned.column] || [];
+              columnNodes[returned.column].push(returned);
+              break;
+          }
         }
+        return {
+          type: 'and',
+          columns: Object.keys(columns),
+          columnNodes,
+          compoundNodes,
+        };
+      } else {
+        let columns: { [column: string]: true } = {};
+        let nodes: RangeNode[] = [];
+        for (let child of expr.values) {
+          const returned = getRangeNode(name, child);
+          if (returned == null) continue;
+          nodes.push(returned);
+          switch (returned.type) {
+            case 'and':
+              for (let column of returned.columns) {
+                columns[column] = true;
+              }
+              break;
+            case 'or':
+              // Merge two nodes...
+              for (let column of returned.columns) {
+                columns[column] = true;
+              }
+              nodes = [...nodes, ...returned.nodes];
+              break;
+            case 'compare':
+              columns[returned.column] = true;
+              break;
+          }
+        }
+        return {
+          type: 'or',
+          columns: Object.keys(columns),
+          nodes,
+        };
       }
-      return {
-        type: expr.op === '&&' ? 'and' : 'or',
-        columns: output,
-      };
     }
     case 'compare': {
       if (expr.left.type === 'column' &&
@@ -260,13 +335,11 @@ interface SargScanNode {
   type: 'scan',
   index: IndexTreeNode,
   values: RangeSet<any>,
-  cost: number,
 }
 
 interface SargMergeNode {
   type: 'merge',
   nodes: SargScanNode[],
-  cost: number,
 }
 
 type SargNode = SargScanNode | SargMergeNode;
@@ -297,6 +370,8 @@ function traverseNode(
   // To aid this, sarg scan node should return a list of next possible indexes.
   //
   switch (node.type) {
+    // Find = first, then fill the rest. (maybe we should distinguish between
+    // two...)
     case 'and':
       break;
     case 'or':
@@ -326,7 +401,6 @@ function traverseNode(
         type: 'scan',
         index: childIndexes,
         values,
-        cost: 0,
       };
     }
   }
