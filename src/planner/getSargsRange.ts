@@ -315,12 +315,14 @@ function getRangeNode(
 }
 
 interface IndexTreeNode {
+  columns: string[],
   indexes: Index[],
   children: { [key: string]: IndexTreeNode },
 }
 
 function getIndexTree(table: NormalTable): IndexTreeNode {
   let output: IndexTreeNode = {
+    columns: [],
     indexes: [],
     children: {},
   };
@@ -330,6 +332,7 @@ function getIndexTree(table: NormalTable): IndexTreeNode {
       let child = node.children[order.key];
       if (child == null) {
         child = node.children[order.key] = {
+          columns: [...node.columns, order.key],
           indexes: [],
           children: {},
         };
@@ -353,6 +356,15 @@ interface SargMergeNode {
 }
 
 type SargNode = SargScanNode | SargMergeNode;
+
+// Merges scan node /w OR.
+function mergeScanNodeOr(a: SargScanNode, b: SargScanNode): SargScanNode {
+  // Check if the node is compatiable.
+  // Two nodes are compatiable with each other if:
+  // 1. At least one node completely includes another node.
+  // 2. If the nodes are not referencing same indexes, only the rightmost
+  //    lookup should be range lookup.
+}
 
 function traverseNode(
   node: RangeNode,
