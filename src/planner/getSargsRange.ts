@@ -358,12 +358,47 @@ interface SargMergeNode {
 type SargNode = SargScanNode | SargMergeNode;
 
 // Merges scan node /w OR.
-function mergeScanNodeOr(a: SargScanNode, b: SargScanNode): SargScanNode {
+function mergeScanNodeOr(
+  a: SargScanNode,
+  b: SargScanNode,
+): SargScanNode | null {
   // Check if the node is compatiable.
   // Two nodes are compatiable with each other if:
   // 1. At least one node completely includes another node.
   // 2. If the nodes are not referencing same indexes, only the rightmost
   //    lookup should be range lookup.
+  // If the nodes have common ancestor, we may opt to use them. But in that
+  // case, using index merge would be faster.
+  const aIsSmaller = a.index.columns.length <= b.index.columns.length;
+  const smallNode = aIsSmaller ? a : b;
+  const largeNode = aIsSmaller ? b : a;
+  const smallColumns = smallNode.index.columns;
+  const largeColumns = largeNode.index.columns;
+  // Check if the node contains another node, then bail out if it's not.
+  if (!smallColumns.every((v, i) => largeColumns[i] === v)) {
+    return null;
+  }
+  const minFiller: typeof negativeInfinity[] = [];
+  const maxFiller: typeof positiveInfinity[] = [];
+  for (let i = 0; i < largeColumns.length - smallColumns.length; i += 1) {
+    minFiller.push(negativeInfinity);
+    maxFiller.push(positiveInfinity);
+  }
+  // ... Merge two nodes.
+  return {
+    type: 'scan',
+    index: largeNode.index,
+    values: rangeSet.or(
+      largeNode.values,
+      // We have to attach the lower value. This is weird, but still necessary.
+      smallNode.values.map((value) => ({
+        min: [value.min, ...minFiller],
+        max: [value.max, ...maxFiller],
+        minEqual: value.minEqual,
+        maxEqual: value.maxEqual,
+      })),
+    ),
+  };
 }
 
 function traverseNode(
