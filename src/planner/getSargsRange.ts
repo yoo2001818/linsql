@@ -401,6 +401,32 @@ function mergeScanNodeOr(
   };
 }
 
+// Make scan node to descend into column, making it to filter more values.
+// However, this may fail if the parent value is a range. In that case,
+// fulfilled will be false.
+function descendScanNode(
+  node: SargScanNode,
+  column: string,
+  rangeSet: RangeSet<any>,
+): { fulfilled: boolean, node: SargScanNode | null } {
+  const newIndex = node.index.children[column];
+  if (newIndex == null) {
+    return { fulfilled: false, node: null };
+  }
+  let fulfilled = true;
+  let output = [];
+  for (let i = 0; i < node.values.length; i += 1) {
+    let nodeValue = node.values[i];
+    if (nodeValue.min !== nodeValue.max) {
+      fulfilled = false;
+    } else {
+      for (let j = 0; j < rangeSet.length; j += 1) {
+        let rangeValue = rangeSet[j];
+      }
+    }
+  }
+}
+
 function traverseNode(
   node: RangeNode,
   indexes: IndexTreeNode,
