@@ -32,8 +32,7 @@ type IndexValue = (
   | string
   | number
   | boolean
-  | typeof positiveInfinity
-  | typeof negativeInfinity
+  | symbol
 )[];
 
 const rangeSetDescriptor = {
@@ -347,7 +346,7 @@ function getIndexTree(table: NormalTable): IndexTreeNode {
 interface SargScanNode {
   type: 'scan',
   index: IndexTreeNode,
-  values: RangeSet<any>,
+  values: RangeSet<IndexValue>,
 }
 
 interface SargMergeNode {
@@ -392,8 +391,8 @@ function mergeScanNodeOr(
       largeNode.values,
       // We have to attach the lower value. This is weird, but still necessary.
       smallNode.values.map((value) => ({
-        min: [value.min, ...minFiller],
-        max: [value.max, ...maxFiller],
+        min: [...value.min, ...minFiller],
+        max: [...value.max, ...maxFiller],
         minEqual: value.minEqual,
         maxEqual: value.maxEqual,
       })),
@@ -407,7 +406,7 @@ function mergeScanNodeOr(
 function descendScanNode(
   node: SargScanNode,
   column: string,
-  rangeSet: RangeSet<any>,
+  rangeSet: RangeSet<IndexValue>,
 ): { fulfilled: boolean, node: SargScanNode | null } {
   const newIndex = node.index.children[column];
   if (newIndex == null) {
@@ -419,12 +418,30 @@ function descendScanNode(
     let nodeValue = node.values[i];
     if (nodeValue.min !== nodeValue.max) {
       fulfilled = false;
+      output.push({
+        ...nodeValue,
+        min: [...nodeValue.min, negativeInfinity],
+        max: [...nodeValue.max, positiveInfinity],
+      });
     } else {
       for (let j = 0; j < rangeSet.length; j += 1) {
         let rangeValue = rangeSet[j];
+        output.push({
+          ...rangeValue,
+          min: [...nodeValue.min, ...rangeValue.min],
+          max: [...nodeValue.max, ...rangeValue.max],
+        })
       }
     }
   }
+  return {
+    fulfilled,
+    node: {
+      type: 'scan',
+      index: newIndex,
+      values: output,
+    },
+  };
 }
 
 function traverseNode(
