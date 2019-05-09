@@ -48,6 +48,9 @@ const rangeSetDescriptor = {
       if (aValue === negativeInfinity && bValue === negativeInfinity) return 0;
       if (aValue === negativeInfinity) return -1;
       if (bValue === negativeInfinity) return 1;
+      if (typeof aValue === 'symbol' || typeof bValue === 'symbol') {
+        throw new Error('Unexpected symbol');
+      }
       if (typeof aValue !== typeof bValue) {
         throw new Error('Uncomparable type');
       }
