@@ -448,21 +448,45 @@ function descendScanNode(
 }
 
 function convertRangeNode(
-  node: RangeScanNode,
-): RangeSet<IndexValue> {
-  switch (node.op) {
-    case '=':
-      return rangeSet.eq([node.value.value]);
-    case '>':
-      return rangeSet.gt([node.value.value]);
-    case '<':
-      return rangeSet.lt([node.value.value]);
-    case '>=':
-      return rangeSet.gte([node.value.value]);
-    case '<=':
-      return rangeSet.lte([node.value.value]);
-    case '!=':
-      return rangeSet.neq([node.value.value]);
+  node: RangeNode,
+  column: string,
+): RangeSet<IndexValue> | null {
+  switch (node.type) {
+    case 'and': {
+      let columnNodes = node.columnNodes[column];
+      if (columnNodes == null) {
+        throw new Error('AND node doesn\'t have column ' + column);
+      }
+      return rangeSet.and(
+        ...columnNodes
+          .map(v => convertRangeNode(v, column))
+          .filter(v => v != null),
+      );
+    }
+    case 'or':
+      return rangeSet.or(
+        ...node.nodes
+          .map(v => convertRangeNode(v, column))
+          .filter(v => v != null),
+      );
+    case 'compare':
+      if (node.column !== column) {
+        throw new Error('Unexpected column ' + node.column);
+      }
+      switch (node.op) {
+        case '=':
+          return rangeSet.eq([node.value.value]);
+        case '>':
+          return rangeSet.gt([node.value.value]);
+        case '<':
+          return rangeSet.lt([node.value.value]);
+        case '>=':
+          return rangeSet.gte([node.value.value]);
+        case '<=':
+          return rangeSet.lte([node.value.value]);
+        case '!=':
+          return rangeSet.neq([node.value.value]);
+      }
   }
 }
 
@@ -500,7 +524,7 @@ function traverseNode(
       //    We might have to do trim off unnecessary nodes.
       // Merging is only possible if they share mutual index lookups.
       for (let column of node.columns) {
-        const columnNodes = node.columnNodes[column];
+        const range = convertRangeNode(node, column);
       }
       break;
     }
