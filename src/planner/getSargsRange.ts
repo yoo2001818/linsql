@@ -447,6 +447,14 @@ function descendScanNode(
   };
 }
 
+// Checks if the node can be descended without hassle.
+// TODO Calculate cost and selectivity?
+function canDescend(node: SargScanNode): boolean {
+  return node.values.every(v => {
+    return v.min[v.min.length - 1] === v.max[v.max.length - 1];
+  });
+}
+
 function convertRangeNode(
   node: RangeNode,
   column: string,
@@ -526,6 +534,32 @@ function traverseNode(
       for (let column of node.columns) {
         const range = convertRangeNode(node, column);
       }
+      // We have to scan each possible index, and determine what's the best.
+      // We can opt to make plan for each index, however, that can be expensive
+      // and index merge (OR) will be a problem.
+      //
+      // ... (a = 1 OR b = 1) AND c = 1 - query planner can opt to use...
+      // - a = 1 OR b = 1 -> index merge -> filter
+      // - c = 1 -> filter
+      // - given that (c, a), (c, b) indexes exist, use the compound index.
+      // - or in other direction, (a, c), (b, c) is applicable too.
+      //
+      // As the latter case implies, each predicate can influence other
+      // predicates to use compound index.
+      // 
+      // We may think separating each lookup when OR is encountered is good,
+      // but that may generate too much OR lookup query - which is completely
+      // unacceptable.
+      // For example, (a = 1 OR b = 1) AND (a = 1 OR b = 1) AND ... will
+      // generate 2^n lookup queries if not optimized properly.
+      //
+      // Clearly, we need to calculate costs and prune the tree, and influence
+      // other queries.
+      //
+      // a = 1 AND b = 1 AND (b = 1 OR a = 2)
+      // a: 1, b: 1, compound: b = 1 OR a = 2
+      // ... a = 2 should be FALSE.
+
       break;
     }
     case 'or': {
