@@ -531,8 +531,10 @@ function traverseNode(
       //    Merging between compound nodes is not possible for now.
       //    We might have to do trim off unnecessary nodes.
       // Merging is only possible if they share mutual index lookups.
+      const columnRanges: { [name: string]: RangeSet<IndexValue> } = {};
+      // Determine the selectivity 
       for (let column of node.columns) {
-        const range = convertRangeNode(node, column);
+        columnRanges[column] = convertRangeNode(node, column);
       }
       // We have to scan each possible index, and determine what's the best.
       // We can opt to make plan for each index, however, that can be expensive
@@ -559,7 +561,18 @@ function traverseNode(
       // a = 1 AND b = 1 AND (b = 1 OR a = 2)
       // a: 1, b: 1, compound: b = 1 OR a = 2
       // ... a = 2 should be FALSE.
-
+      let plans: SargNode[] = [];
+      for (let column of node.columns) {
+        if (indexes.children[column] != null) {
+          const targetIndex = indexes.children[column];
+          plans.push({
+            type: 'scan',
+            index: targetIndex,
+            values: columnRanges[column],
+          });
+        }
+      }
+      console.log(plans);
       break;
     }
     case 'or': {
