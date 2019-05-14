@@ -561,6 +561,17 @@ function traverseNode(
       // a = 1 AND b = 1 AND (b = 1 OR a = 2)
       // a: 1, b: 1, compound: b = 1 OR a = 2
       // ... a = 2 should be FALSE.
+
+      // We can merge nodes to use compound indexes, however, this requires
+      // every step requires its own index. We can manage a 'virtual index' to
+      // make each node return possible outputs, or, try to mux them using
+      // its metadata, so it can directly correlate to index scan.
+      //
+      // The problem is, AND operations can be managed using this way. But,
+      // OR operation clearly doesn't work like that - index merges are supposed
+      // to happen.
+      //
+      // We can try thinking them separately if this becomes too much problem.
       let plans: SargNode[] = [];
       for (let column of node.columns) {
         if (indexes.children[column] != null) {
