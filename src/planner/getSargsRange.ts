@@ -572,6 +572,41 @@ function traverseNode(
       // to happen.
       //
       // We can try thinking them separately if this becomes too much problem.
+      /*
+        1. a = 3
+        2. a > 3
+        3. a > 3 AND a < 8
+        4. a = 3 AND b = 3
+        5. a > 3 AND a < 8 AND b = 3
+        6. a = 3 OR a = 4
+        7. a = 3 OR b = 3
+        8. a > 3 OR b > 3
+        9. (a > 3 AND a < 8) OR b > 3
+        10. (a = 3 AND b = 3) OR c = 3
+        11.  (a = 3 AND b > 3) OR c = 3
+        12. (a = 3 OR b = 3) AND c = 3
+        13. (a > 3 OR b > 3) AND c = 3
+        14. (a = 3 OR b = 3) AND c > 3
+        15. (a = 3 OR b = 3) AND (c = 3 OR d = 3)
+        16. (a > 3 OR b > 3) AND (c > 3 OR d > 3)
+       */
+      // 1. a = 3 -> a, with equal scan.
+      // 2. a > 3 -> a, with range scan.
+      // 3. a > 3 AND a < 8 -> a, with range scan.
+      // 4. a = 3 AND b = 3 ->
+      //    Since a and b both relies on equal scan, (a, b) or (b, a) is both
+      //    possible.
+      //    Try each column on trie, and choose the best one from it.
+      // 5. a > 3 AND a < 8 AND b = 3 ->
+      //    a relies on range scan, and b relies on equal scan.
+      //    (b, a) can be leveraged - Still, try each index and find the best
+      //    one.
+      // 6. a = 3 OR a = 4 -> a, with equal scan.
+      // 7. a = 3 OR b = 3 ->
+      //    Since both are not the same column, split the scan into two and
+      //    merge the two.
+      // 8. a > 3 OR b > 3 -> Same with 7.
+      // 9. (a > 3 AND a < 8) OR b > 3 -> Same with 7.
       let plans: SargNode[] = [];
       for (let column of node.columns) {
         if (indexes.children[column] != null) {
