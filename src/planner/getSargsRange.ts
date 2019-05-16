@@ -583,12 +583,13 @@ function traverseNode(
         8. a > 3 OR b > 3
         9. (a > 3 AND a < 8) OR b > 3
         10. (a = 3 AND b = 3) OR c = 3
-        11.  (a = 3 AND b > 3) OR c = 3
-        12. (a = 3 OR b = 3) AND c = 3
-        13. (a > 3 OR b > 3) AND c = 3
-        14. (a = 3 OR b = 3) AND c > 3
-        15. (a = 3 OR b = 3) AND (c = 3 OR d = 3)
-        16. (a > 3 OR b > 3) AND (c > 3 OR d > 3)
+        11. (a = 3 AND b > 3) OR a > 3
+        12. (a = 3 AND b > 3) OR c = 3
+        13. (a = 3 OR b = 3) AND c = 3
+        14. (a > 3 OR b > 3) AND c = 3
+        15. (a = 3 OR b = 3) AND c > 3
+        16. (a = 3 OR b = 3) AND (c = 3 OR d = 3)
+        17. (a > 3 OR b > 3) AND (c > 3 OR d > 3)
        */
       // 1. a = 3 -> a, with equal scan.
       // 2. a > 3 -> a, with range scan.
@@ -607,6 +608,37 @@ function traverseNode(
       //    merge the two.
       // 8. a > 3 OR b > 3 -> Same with 7.
       // 9. (a > 3 AND a < 8) OR b > 3 -> Same with 7.
+      // 10. (a = 3 AND b = 3) OR c = 3 -> Same with 8.
+      // 11. (a = 3 AND b > 3) OR a > 3 ->
+      //     This is an interesting case, because a > 3 can be merged into
+      //     (a, b) index. OR should move it into lower index if it's possible
+      //     to do so.
+      // 12. (a = 3 AND b > 3) OR c = 3 -> Same with 10.
+      // 13. (a = 3 OR b = 3) AND c = 3 ->
+      //     This becomes really complex because c = 3 can be used by OR clause,
+      //     which breaks divide-and-conquer strategy - it suddenly became too
+      //     complex.
+      //     Instead choosing index inside OR block, it can just return the
+      //     possible scans of columns, and AND block can choose what's best for
+      //     the given data.
+      // 13-1. a > 3 OR (a = 3 AND (b > 3 OR (b = 3 AND c > 3))))
+      //     We can do cartesian product? Honestly, I don't think there's better
+      //     structure...
+      //     b: 3, c > 3 or b > 3
+      // 14. (a > 3 OR b > 3) AND c = 3
+      //     We can just use c = 3, or, use a > 3 / b > 3 using cartesian
+      //     product. Cartesian products should be avoided when there's no
+      //     proper index for given columns. (a, b index should exist)
+      // 15. (a = 3 OR b = 3) AND c = 3
+      //     For this, just use cartesian product too.
+      // 16. (a = 3 OR b = 3) AND (c = 3 OR d = 3)
+      //     Unlike previous ones, this actually requires product with two OR,
+      //     which may have a problem. There must be a bailout logic - just give
+      //     up the OR selection - when both index doesn't exist, etc.
+      // 17. (a > 3 OR b > 3) AND (c > 3 OR d > 3)
+      //     For this case, cartesian product clearly doesn't help at all
+      //     because both relies on range lookup - in this case, we have to
+      //     compare two and choose the winner.
       let plans: SargNode[] = [];
       for (let column of node.columns) {
         if (indexes.children[column] != null) {
