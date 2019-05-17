@@ -639,6 +639,14 @@ function traverseNode(
       //     For this case, cartesian product clearly doesn't help at all
       //     because both relies on range lookup - in this case, we have to
       //     compare two and choose the winner.
+      //
+      // In conclusion, we'd have to do something like this:
+      // - Each 'OR', 'AND', 'compare' node should return a list of 'lookup
+      //   candidate', which consists of range nodes and equal nodes. The list
+      //   is considered OR - it'll be index merged.
+      // - For AND, just merge lookup candidates - it's too simple.
+      //   If there are too many lookup candidates, try to drop few of them.
+      // - For OR, split the lookup candidates.
       let plans: SargNode[] = [];
       for (let column of node.columns) {
         if (indexes.children[column] != null) {
