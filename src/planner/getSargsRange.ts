@@ -233,12 +233,14 @@ function getIndexTree(table: NormalTable): IndexTreeNode {
   return output;
 }
 
-interface SargNode {
+interface SargScanNode {
   columns: { [key: string]: {
     type: 'equal' | 'range',
     set: RangeSet<IndexValue>,
   } },
 }
+
+type SargNode = SargScanNode | true | false;
 
 function hasRange(set: RangeSet<IndexValue>): boolean {
   return set.every(v => {
@@ -264,6 +266,39 @@ function traverseNode(
 ): SargNode[] {
   switch (node.type) {
     case 'and':
+      let currentList: SargNode[] = [true];
+      for (let childNode of node.nodes) {
+        const childList = traverseNode(childNode, indexes);
+        // Using the child sarg, perform cartesian product
+        let result: SargNode[] = [];
+        for (let i = 0; i < currentList.length; i += 1) {
+          const current = currentList[i];
+          for (let j = 0; j < childList.length; j += 1) {
+            const child = childList[j];
+            // Validate if they're an array first:
+            // - If one of them is false, it's false.
+            // - If all of them is true, it's true.
+            if (current === false || child === false) {
+              result.push(false);
+              continue;
+            }
+            if (current === true) {
+              result.push(child);
+              continue;
+            }
+            if (child === true) {
+              result.push(current);
+              continue;
+            }
+            // ... Perform merging each column;
+            // - if one column becomes 'false', the entire sarg node becomes
+            //   false.
+            // - if all column becomes 'true' (including NULL), the entire sarg
+            //   node becomes true, albeit this will never happen in AND node.
+            
+          }
+        }
+      }
       break;
     case 'or':
       break;
