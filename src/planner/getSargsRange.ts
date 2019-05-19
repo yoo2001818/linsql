@@ -60,8 +60,7 @@ interface RangeOrNode {
 interface RangeAndNode {
   type: 'and',
   columns: string[],
-  columnNodes: { [column: string]: RangeNode[] },
-  compoundNodes: RangeNode[],
+  nodes: RangeNode[],
 }
 
 interface RangeCompareNode {
@@ -86,52 +85,33 @@ function getRangeNode(
     case 'logical': {
       if (expr.op === '&&') {
         let columns: { [column: string]: true } = {};
-        let columnNodes: { [column: string]: RangeNode[] } = {};
-        let compoundNodes: RangeNode[] = [];
+        let nodes: RangeNode[] = [];
         for (let child of expr.values) {
           const returned = getRangeNode(name, child);
           if (returned == null) continue;
+          nodes.push(returned);
           switch (returned.type) {
             case 'and':
-              // Merge two nodes.
+              // Merge two nodes...
               for (let column of returned.columns) {
                 columns[column] = true;
               }
-              for (let column in returned.columnNodes) {
-                columnNodes[column] = [
-                  ...columnNodes[column] || [],
-                  ...returned.columnNodes[column],
-                ]
-              }
-              compoundNodes = [
-                ...compoundNodes,
-                ...returned.compoundNodes,
-              ];
+              nodes = [...nodes, ...returned.nodes];
+              break;
             case 'or':
-              if (returned.columns.length === 1) {
-                const column = returned.columns[0];
+              for (let column of returned.columns) {
                 columns[column] = true;
-                columnNodes[column] = columnNodes[column] || [];
-                columnNodes[column].push(returned);
-              } else {
-                for (let column of returned.columns) {
-                  columns[column] = true;
-                }
-                compoundNodes.push(returned);
               }
               break;
             case 'compare':
               columns[returned.column] = true;
-              columnNodes[returned.column] = columnNodes[returned.column] || [];
-              columnNodes[returned.column].push(returned);
               break;
           }
         }
         return {
           type: 'and',
           columns: Object.keys(columns),
-          columnNodes,
-          compoundNodes,
+          nodes,
         };
       } else {
         let columns: { [column: string]: true } = {};
@@ -196,7 +176,7 @@ function getRangeNode(
       if (expr.customType === 'andGraph') {
         let andGraph = expr as AndGraphExpression;
         let columns: { [column: string]: true } = {};
-        let columnNodes: { [column: string]: RangeNode[] } = {};
+        let nodes: RangeNode[] = [];
         andGraph.nodes.forEach(node => {
           let targetNames = node.names.filter(v =>
             v.type === 'column' && v.table === name);
@@ -204,19 +184,19 @@ function getRangeNode(
             if (targetName.type !== 'column') return;
             const { name } = targetName;
             columns[name] = true;
-            columnNodes[name] = columnNodes[name] || [];
             node.constraints.forEach(expr => {
-              columnNodes[name].push(getRangeNode(name, expr, targetName.name));
+              nodes.push(getRangeNode(name, expr, targetName.name));
             });
           });
+        });
+        andGraph.leftovers.forEach(node => {
+          const result = getRangeNode(name, node);
+          if (result != null) nodes.push(result);
         });
         return {
           type: 'and',
           columns: Object.keys(columns),
-          columnNodes,
-          compoundNodes: andGraph.leftovers
-            .map(node => getRangeNode(name, node))
-            .filter(v => v != null),
+          nodes,
         };
       }
       break;
@@ -266,89 +246,16 @@ function hasRange(set: RangeSet<IndexValue>): boolean {
   });
 }
 
-function convertRangeNode(
-  node: RangeNode,
+function createSingleSargNode(
   column: string,
-): SargNode {
-  switch (node.type) {
-    case 'and': {
-      let columnNodes = node.columnNodes[column];
-      if (columnNodes == null) {
-        throw new Error('AND node doesn\'t have column ' + column);
-      }
-      return rangeSet.and(
-        ...columnNodes
-          .map(v => convertRangeNode(v, column))
-          .filter(v => v != null),
-      );
-    }
-    case 'or':
-      return rangeSet.or(
-        ...node.nodes
-          .map(v => convertRangeNode(v, column))
-          .filter(v => v != null),
-      );
-    case 'compare':
-      if (node.column !== column) {
-        throw new Error('Unexpected column ' + node.column);
-      }
-      switch (node.op) {
-        case '=':
-          return {
-            columns: {
-              [column]: {
-                type: 'equal',
-                set: rangeSet.eq([node.value.value]),
-              }
-            }
-          };
-        case '>':
-          return {
-            columns: {
-              [column]: {
-                type: 'range',
-                set: rangeSet.gt([node.value.value]),
-              }
-            }
-          };
-        case '<':
-          return {
-            columns: {
-              [column]: {
-                type: 'range',
-                set: rangeSet.lt([node.value.value]),
-              }
-            }
-          };
-        case '>=':
-          return {
-            columns: {
-              [column]: {
-                type: 'range',
-                set: rangeSet.gte([node.value.value]),
-              }
-            }
-          };
-        case '<=':
-          return {
-            columns: {
-              [column]: {
-                type: 'range',
-                set: rangeSet.lte([node.value.value]),
-              }
-            }
-          };
-        case '!=':
-          return {
-            columns: {
-              [column]: {
-                type: 'range',
-                set: rangeSet.neq([node.value.value]),
-              }
-            }
-          };
-      }
-  }
+  type: 'equal' | 'range',
+  set: RangeSet<IndexValue>,
+): SargNode[] {
+  return [{
+    columns: {
+      [column]: { type, set },
+    },
+  }];
 }
 
 function traverseNode(
@@ -357,9 +264,31 @@ function traverseNode(
 ): SargNode[] {
   switch (node.type) {
     case 'and':
+      break;
     case 'or':
       break;
-    case 'compare':
-      return [convertRangeNode(node, node.column)];
+    case 'compare': {
+      const column = node.column;
+      switch (node.op) {
+        case '=':
+          return createSingleSargNode(column, 'equal',
+            rangeSet.eq([node.value.value]));
+        case '>':
+          return createSingleSargNode(column, 'range',
+            rangeSet.gt([node.value.value]));
+        case '<':
+          return createSingleSargNode(column, 'range',
+            rangeSet.lt([node.value.value]));
+        case '>=':
+          return createSingleSargNode(column, 'range',
+            rangeSet.gte([node.value.value]));
+        case '<=':
+          return createSingleSargNode(column, 'range',
+            rangeSet.lte([node.value.value]));
+        case '!=':
+          return createSingleSargNode(column, 'range',
+            rangeSet.neq([node.value.value]));
+      }
+    }
   }
 }
