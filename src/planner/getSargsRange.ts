@@ -233,11 +233,13 @@ function getIndexTree(table: NormalTable): IndexTreeNode {
   return output;
 }
 
+interface SargScanNodeColumn {
+  type: 'equal' | 'range',
+  set: RangeSet<IndexValue>,
+}
+
 interface SargScanNode {
-  columns: { [key: string]: {
-    type: 'equal' | 'range',
-    set: RangeSet<IndexValue>,
-  } },
+  columns: { [key: string]: SargScanNodeColumn },
 }
 
 type SargNode = SargScanNode | true | false;
@@ -295,7 +297,36 @@ function traverseNode(
             //   false.
             // - if all column becomes 'true' (including NULL), the entire sarg
             //   node becomes true, albeit this will never happen in AND node.
-            
+            let outputColumns: { [key: string]: SargScanNodeColumn } = {};
+            let alwaysFalse: boolean = false;
+            for (let key in child.columns) {
+              const currentColumn = current.columns[key];
+              const childColumn = child.columns[key];
+              if (currentColumn == null) {
+                outputColumns[key] = childColumn;
+                continue;
+              }
+              // Try to combine two columns.
+              const output = rangeSet.and(currentColumn.set, childColumn.set);
+              if (output.length === 0) {
+                alwaysFalse = true;
+                break;
+              }
+              outputColumns[key] = {
+                type: hasRange(output) ? 'range' : 'equal',
+                set: output,
+              };
+            }
+            if (alwaysFalse) {
+              result.push(false);
+              continue;
+            }
+            for (let key in current.columns) {
+              if (child.columns[key] == null) {
+                outputColumns[key] = current.columns[key];
+              }
+            }
+            result.push({ columns: outputColumns });
           }
         }
       }
