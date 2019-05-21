@@ -267,21 +267,18 @@ function traverseNode(
   indexes: IndexTreeNode,
 ): SargNode[] {
   switch (node.type) {
-    case 'and':
+    case 'and': {
       let currentList: SargNode[] = [true];
       for (let childNode of node.nodes) {
         const childList = traverseNode(childNode, indexes);
         // Using the child sarg, perform cartesian product
         let result: SargNode[] = [];
-        for (let i = 0; i < currentList.length; i += 1) {
-          const current = currentList[i];
-          for (let j = 0; j < childList.length; j += 1) {
-            const child = childList[j];
+        for (let current of currentList) {
+          for (let child of childList) {
             // Validate if they're an array first:
             // - If one of them is false, it's false.
             // - If all of them is true, it's true.
             if (current === false || child === false) {
-              result.push(false);
               continue;
             }
             if (current === true) {
@@ -318,7 +315,6 @@ function traverseNode(
               };
             }
             if (alwaysFalse) {
-              result.push(false);
               continue;
             }
             for (let key in current.columns) {
@@ -329,10 +325,60 @@ function traverseNode(
             result.push({ columns: outputColumns });
           }
         }
+        currentList = result;
       }
-      break;
-    case 'or':
-      break;
+      return currentList;
+    }
+    case 'or': {
+      let currentList: SargNode[] = [];
+      // Well, to be simple, it can just append the node into current list.
+      // But, single column entries deserve better - it can be merged.
+      for (let childNode of node.nodes) {
+        const childList = traverseNode(childNode, indexes);
+        for (let child of childList) {
+          if (child === true) {
+            // Perform short circuit - there's no need to see anything else
+            // anymore! :D
+            return [true];
+          }
+          if (child === false) continue;
+          // We can't bond anything more than single column...
+          // TODO If only one mutual column varies, we can actually attach two
+          // lists (Not sure if this would be helpful)
+          const childKeys = Object.keys(child.columns); 
+          if (childKeys.length > 1) {
+            currentList.push(child);
+          } else {
+            let found = false;
+            for (let i = 0; i < currentList.length; i += 1) {
+              const current = currentList[i];
+              if (typeof current === 'boolean') continue;
+              const currentKeys = Object.keys(current.columns);
+              if (currentKeys.length === 1 && currentKeys[0] === childKeys[0]) {
+                // We've got a match! Try to replace the value.
+                // Try to combine two columns.
+                const key = currentKeys[0];
+                const currentColumn = current.columns[key];
+                const childColumn = child.columns[key];
+                const output = rangeSet.or(currentColumn.set, childColumn.set);
+                // TODO infinity check
+                currentList[i] = {
+                  columns: {
+                    [key]: {
+                      type: hasRange(output) ? 'range' : 'equal',
+                      set: output,
+                    },
+                  }
+                };
+                found = true;
+              }
+            }
+            if (!found) currentList.push(child);
+          }
+        }
+      }
+      return currentList;
+    }
     case 'compare': {
       const column = node.column;
       switch (node.op) {
