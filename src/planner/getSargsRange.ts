@@ -5,8 +5,8 @@ import { NormalTable, Index } from '../table';
 import { AndGraphExpression } from '../expression/optimize/graph';
 import { rotateCompareOp } from '../expression/op';
 
-const positiveInfinity = Symbol('+Infinity');
-const negativeInfinity = Symbol('-Infinity');
+export const positiveInfinity = Symbol('+Infinity');
+export const negativeInfinity = Symbol('-Infinity');
 
 type IndexValue = (
   | string
@@ -15,7 +15,7 @@ type IndexValue = (
   | symbol
 )[];
 
-const rangeSetDescriptor = {
+export const rangeSetDescriptor = {
   // Even though this is compared using > and <, each value must consist of
   // same type.
   compare: (a: IndexValue, b: IndexValue) => {
@@ -46,7 +46,7 @@ const rangeSetDescriptor = {
   negativeInfinity: [negativeInfinity as typeof negativeInfinity],
 };
 
-const rangeSet = createRangeSetModule(rangeSetDescriptor);
+export const rangeSet = createRangeSetModule(rangeSetDescriptor);
 
 type RangeOp = '>' | '<' | '=' | '!=' | '>=' | '<=';
 type ValueExpression = BooleanValue | StringValue | NumberValue;
@@ -76,7 +76,7 @@ function isRangeOp(op: string): op is RangeOp {
   return ['>', '<', '=', '!=', '>=', '<='].includes(op);
 }
 
-function getRangeNode(
+export function getRangeNode(
   name: string,
   expr: Expression,
   forceColumn?: string | null,
@@ -262,15 +262,14 @@ function createSingleSargNode(
   }];
 }
 
-function traverseNode(
+export function traverseNode(
   node: RangeNode,
-  indexes: IndexTreeNode,
 ): SargNode[] {
   switch (node.type) {
     case 'and': {
       let currentList: SargNode[] = [true];
       for (let childNode of node.nodes) {
-        const childList = traverseNode(childNode, indexes);
+        const childList = traverseNode(childNode);
         // Using the child sarg, perform cartesian product
         let result: SargNode[] = [];
         for (let current of currentList) {
@@ -334,7 +333,7 @@ function traverseNode(
       // Well, to be simple, it can just append the node into current list.
       // But, single column entries deserve better - it can be merged.
       for (let childNode of node.nodes) {
-        const childList = traverseNode(childNode, indexes);
+        const childList = traverseNode(childNode);
         for (let child of childList) {
           if (child === true) {
             // Perform short circuit - there's no need to see anything else
@@ -361,7 +360,14 @@ function traverseNode(
                 const currentColumn = current.columns[key];
                 const childColumn = child.columns[key];
                 const output = rangeSet.or(currentColumn.set, childColumn.set);
-                // TODO infinity check
+                if (output.length === 1 &&
+                  output[0].min[0] === negativeInfinity &&
+                  output[0].max[0] === positiveInfinity
+                ) {
+                  // We can short-circuit this!
+                  // TODO Replace this with non-null check
+                  return [true];
+                }
                 currentList[i] = {
                   columns: {
                     [key]: {
