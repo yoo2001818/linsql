@@ -1,4 +1,5 @@
-import { Expression, BooleanValue, StringValue, NumberValue } from 'yasqlp';
+import { Expression, BooleanValue, StringValue, NumberValue, NullValue }
+  from 'yasqlp';
 import createRangeSetModule, { RangeSet } from 'range-set';
 
 import { NormalTable, Index } from '../table';
@@ -7,6 +8,7 @@ import { rotateCompareOp } from '../expression/op';
 
 export const positiveInfinity = Symbol('+Infinity');
 export const negativeInfinity = Symbol('-Infinity');
+export const nullValue = Symbol('null');
 
 type IndexValue = (
   | string
@@ -28,6 +30,9 @@ export const rangeSetDescriptor = {
       if (aValue === negativeInfinity && bValue === negativeInfinity) return 0;
       if (aValue === negativeInfinity) return -1;
       if (bValue === negativeInfinity) return 1;
+      if (aValue === nullValue && bValue === nullValue) return 0;
+      if (aValue === nullValue) return -1;
+      if (bValue === nullValue) return 1;
       if (typeof aValue === 'symbol' || typeof bValue === 'symbol') {
         throw new Error('Unexpected symbol');
       }
@@ -49,7 +54,7 @@ export const rangeSetDescriptor = {
 export const rangeSet = createRangeSetModule(rangeSetDescriptor);
 
 type RangeOp = '>' | '<' | '=' | '!=' | '>=' | '<=';
-type ValueExpression = BooleanValue | StringValue | NumberValue;
+type ValueExpression = BooleanValue | StringValue | NumberValue | NullValue;
 
 interface RangeOrNode {
   type: 'or',
@@ -148,7 +153,7 @@ export function getRangeNode(
     case 'compare': {
       if (expr.left.type === 'column' &&
         (forceColumn || expr.left.table === name) &&
-        ['boolean', 'number', 'string'].includes(expr.right.type) &&
+        ['boolean', 'number', 'string', 'null'].includes(expr.right.type) &&
         isRangeOp(expr.op)
       ) {
         return {
@@ -160,7 +165,7 @@ export function getRangeNode(
       }
       if (expr.right.type === 'column' &&
         (forceColumn || expr.right.table === name) &&
-        ['boolean', 'number', 'string'].includes(expr.left.type) &&
+        ['boolean', 'number', 'string', 'null'].includes(expr.left.type) &&
         isRangeOp(expr.op)
       ) {
         return {
@@ -387,6 +392,18 @@ export function traverseNode(
     }
     case 'compare': {
       const column = node.column;
+      if (node.value.type === 'null') {
+        switch (node.op) {
+          case '=':
+            return createSingleSargNode(column, 'equal',
+              rangeSet.eq([nullValue]));
+          case '!=':
+            return createSingleSargNode(column, 'equal',
+              rangeSet.neq([nullValue]));
+          default:
+            throw new Error('Unsupported NULL operation');
+        }
+      }
       switch (node.op) {
         case '=':
           return createSingleSargNode(column, 'equal',

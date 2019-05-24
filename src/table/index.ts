@@ -1,8 +1,10 @@
 import { SelectStatement } from 'yasqlp';
 
+export type ColumnType = 'string' | 'number' | 'boolean';
+
 export interface Order {
   key: string,
-  type: 'string' | 'number',
+  type: ColumnType,
   order: boolean,
 }
 
@@ -14,10 +16,17 @@ export interface Index {
   count: number,
 }
 
+export interface ColumnHint {
+  name: string,
+  type: ColumnType,
+  unique: boolean,
+  nullable: boolean,
+}
+
 export interface BaseTable {
   type: string,
   name: string,
-  columns: string[],
+  columns: ColumnHint[],
 }
 
 export interface NormalTable extends BaseTable {
