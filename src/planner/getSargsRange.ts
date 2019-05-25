@@ -53,7 +53,7 @@ export const rangeSetDescriptor = {
 
 export const rangeSet = createRangeSetModule(rangeSetDescriptor);
 
-type RangeOp = '>' | '<' | '=' | '!=' | '>=' | '<=';
+type RangeOp = '>' | '<' | '=' | '!=' | '>=' | '<=' | 'is';
 type ValueExpression = BooleanValue | StringValue | NumberValue | NullValue;
 
 interface RangeOrNode {
@@ -78,7 +78,7 @@ interface RangeCompareNode {
 type RangeNode = RangeOrNode | RangeAndNode | RangeCompareNode;
 
 function isRangeOp(op: string): op is RangeOp {
-  return ['>', '<', '=', '!=', '>=', '<='].includes(op);
+  return ['>', '<', '=', '!=', '>=', '<=', 'is'].includes(op);
 }
 
 export function getRangeNode(
@@ -394,12 +394,9 @@ export function traverseNode(
       const column = node.column;
       if (node.value.type === 'null') {
         switch (node.op) {
-          case '=':
+          case 'is': 
             return createSingleSargNode(column, 'equal',
               rangeSet.eq([nullValue]));
-          case '!=':
-            return createSingleSargNode(column, 'equal',
-              rangeSet.neq([nullValue]));
           default:
             throw new Error('Unsupported NULL operation');
         }
@@ -407,22 +404,37 @@ export function traverseNode(
       switch (node.op) {
         case '=':
           return createSingleSargNode(column, 'equal',
-            rangeSet.eq([node.value.value]));
+            rangeSet.and(
+              rangeSet.eq([node.value.value]),
+              rangeSet.neq([nullValue]),
+            ));
         case '>':
           return createSingleSargNode(column, 'range',
-            rangeSet.gt([node.value.value]));
+            rangeSet.and(
+              rangeSet.gt([node.value.value]),
+              rangeSet.neq([nullValue]),
+            ));
         case '<':
           return createSingleSargNode(column, 'range',
-            rangeSet.lt([node.value.value]));
+            rangeSet.and(
+              rangeSet.lt([node.value.value]),
+              rangeSet.neq([nullValue]),
+            ));
         case '>=':
           return createSingleSargNode(column, 'range',
-            rangeSet.gte([node.value.value]));
+            rangeSet.and(
+              rangeSet.gte([node.value.value]),
+              rangeSet.neq([nullValue]),
+            ));
         case '<=':
           return createSingleSargNode(column, 'range',
-            rangeSet.lte([node.value.value]));
+            rangeSet.and(
+              rangeSet.lte([node.value.value]),
+              rangeSet.neq([nullValue]),
+            ));
         case '!=':
           return createSingleSargNode(column, 'range',
-            rangeSet.neq([node.value.value]));
+            rangeSet.neq([nullValue, node.value.value]));
       }
     }
   }

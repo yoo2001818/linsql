@@ -30,4 +30,7 @@ describe('getSargsRange', () => {
     expect(run('a.a > 3 OR (a.a = 3 AND (a.b > 3 OR (a.b = 3 AND a.c >= 3)))'))
       .toEqual([]);
   });
+  it('should run correctly (not null)', () => {
+    expect(run('a.a > 1 OR a.a <= 1 OR a.a IS NULL')).toEqual([]);
+  });
 });
