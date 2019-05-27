@@ -7,8 +7,7 @@ import { AndGraphExpression } from '../expression/optimize/graph';
 import { rotateCompareOp } from '../expression/op';
 
 export const positiveInfinity = Symbol('+Infinity');
-export const negativeInfinity = Symbol('-Infinity');
-export const nullValue = Symbol('null');
+export const negativeInfinity = Symbol('-Infinity / null');
 
 type IndexValue = (
   | string
@@ -30,9 +29,6 @@ export const rangeSetDescriptor = {
       if (aValue === negativeInfinity && bValue === negativeInfinity) return 0;
       if (aValue === negativeInfinity) return -1;
       if (bValue === negativeInfinity) return 1;
-      if (aValue === nullValue && bValue === nullValue) return 0;
-      if (aValue === nullValue) return -1;
-      if (bValue === nullValue) return 1;
       if (typeof aValue === 'symbol' || typeof bValue === 'symbol') {
         throw new Error('Unexpected symbol');
       }
@@ -364,13 +360,11 @@ export function traverseNode(
                 const key = currentKeys[0];
                 const currentColumn = current.columns[key];
                 const childColumn = child.columns[key];
-                console.log(currentColumn.set);
-                console.log(childColumn.set);
                 const output = rangeSet.or(currentColumn.set, childColumn.set);
-                console.log(output);
                 if (output.length === 1 &&
                   output[0].min[0] === negativeInfinity &&
-                  output[0].max[0] === positiveInfinity
+                  output[0].max[0] === positiveInfinity &&
+                  output[0].minEqual
                 ) {
                   // We can short-circuit this!
                   // TODO Replace this with non-null check
@@ -399,7 +393,7 @@ export function traverseNode(
         switch (node.op) {
           case 'is': 
             return createSingleSargNode(column, 'equal',
-              rangeSet.eq([nullValue]));
+              rangeSet.eq([negativeInfinity]));
           default:
             throw new Error('Unsupported NULL operation');
         }
@@ -409,35 +403,38 @@ export function traverseNode(
           return createSingleSargNode(column, 'equal',
             rangeSet.and(
               rangeSet.eq([node.value.value]),
-              rangeSet.neq([nullValue]),
+              rangeSet.neq([negativeInfinity]),
             ));
         case '>':
           return createSingleSargNode(column, 'range',
             rangeSet.and(
               rangeSet.gt([node.value.value]),
-              rangeSet.neq([nullValue]),
+              rangeSet.neq([negativeInfinity]),
             ));
         case '<':
           return createSingleSargNode(column, 'range',
             rangeSet.and(
               rangeSet.lt([node.value.value]),
-              rangeSet.neq([nullValue]),
+              rangeSet.neq([negativeInfinity]),
             ));
         case '>=':
           return createSingleSargNode(column, 'range',
             rangeSet.and(
               rangeSet.gte([node.value.value]),
-              rangeSet.neq([nullValue]),
+              rangeSet.neq([negativeInfinity]),
             ));
         case '<=':
           return createSingleSargNode(column, 'range',
             rangeSet.and(
               rangeSet.lte([node.value.value]),
-              rangeSet.neq([nullValue]),
+              rangeSet.neq([negativeInfinity]),
             ));
         case '!=':
           return createSingleSargNode(column, 'range',
-            rangeSet.neq([nullValue, node.value.value]));
+            rangeSet.and(
+              rangeSet.neq([negativeInfinity]),
+              rangeSet.neq([node.value.value]),
+            ));
       }
     }
   }
