@@ -364,7 +364,10 @@ export function traverseNode(
                 const key = currentKeys[0];
                 const currentColumn = current.columns[key];
                 const childColumn = child.columns[key];
+                console.log(currentColumn.set);
+                console.log(childColumn.set);
                 const output = rangeSet.or(currentColumn.set, childColumn.set);
+                console.log(output);
                 if (output.length === 1 &&
                   output[0].min[0] === negativeInfinity &&
                   output[0].max[0] === positiveInfinity
