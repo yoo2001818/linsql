@@ -234,32 +234,18 @@ function getIndexTree(table: NormalTable): IndexTreeNode {
   return output;
 }
 
-interface SargScanNodeColumn {
-  type: 'equal' | 'range',
-  set: RangeSet<IndexValue>,
-}
-
-interface SargScanNode {
-  columns: { [key: string]: SargScanNodeColumn },
+type SargScanNode = {
+  [key: string]: RangeSet<IndexValue>,
 }
 
 type SargNode = SargScanNode | true | false;
 
-function hasRange(set: RangeSet<IndexValue>): boolean {
-  return set.every(v => {
-    return v.min[v.min.length - 1] === v.max[v.max.length - 1];
-  });
-}
-
 function createSingleSargNode(
   column: string,
-  type: 'equal' | 'range',
   set: RangeSet<IndexValue>,
 ): SargNode[] {
   return [{
-    columns: {
-      [column]: { type, set },
-    },
+    [column]: set,
   }];
 }
 
@@ -294,35 +280,32 @@ export function traverseNode(
             //   false.
             // - if all column becomes 'true' (including NULL), the entire sarg
             //   node becomes true, albeit this will never happen in AND node.
-            let outputColumns: { [key: string]: SargScanNodeColumn } = {};
+            let outputColumns: { [key: string]: RangeSet<IndexValue> } = {};
             let alwaysFalse: boolean = false;
-            for (let key in child.columns) {
-              const currentColumn = current.columns[key];
-              const childColumn = child.columns[key];
+            for (let key in child) {
+              const currentColumn = current[key];
+              const childColumn = child[key];
               if (currentColumn == null) {
                 outputColumns[key] = childColumn;
                 continue;
               }
               // Try to combine two columns.
-              const output = rangeSet.and(currentColumn.set, childColumn.set);
+              const output = rangeSet.and(currentColumn, childColumn);
               if (output.length === 0) {
                 alwaysFalse = true;
                 break;
               }
-              outputColumns[key] = {
-                type: hasRange(output) ? 'range' : 'equal',
-                set: output,
-              };
+              outputColumns[key] = output;
             }
             if (alwaysFalse) {
               continue;
             }
-            for (let key in current.columns) {
-              if (child.columns[key] == null) {
-                outputColumns[key] = current.columns[key];
+            for (let key in current) {
+              if (child[key] == null) {
+                outputColumns[key] = current[key];
               }
             }
-            result.push({ columns: outputColumns });
+            result.push(outputColumns);
           }
         }
         currentList = result;
@@ -345,7 +328,7 @@ export function traverseNode(
           // We can't bond anything more than single column...
           // TODO If only one mutual column varies, we can actually attach two
           // lists (Not sure if this would be helpful)
-          const childKeys = Object.keys(child.columns); 
+          const childKeys = Object.keys(child); 
           if (childKeys.length > 1) {
             currentList.push(child);
           } else {
@@ -353,14 +336,14 @@ export function traverseNode(
             for (let i = 0; i < currentList.length; i += 1) {
               const current = currentList[i];
               if (typeof current === 'boolean') continue;
-              const currentKeys = Object.keys(current.columns);
+              const currentKeys = Object.keys(current);
               if (currentKeys.length === 1 && currentKeys[0] === childKeys[0]) {
                 // We've got a match! Try to replace the value.
                 // Try to combine two columns.
                 const key = currentKeys[0];
-                const currentColumn = current.columns[key];
-                const childColumn = child.columns[key];
-                const output = rangeSet.or(currentColumn.set, childColumn.set);
+                const currentColumn = current[key];
+                const childColumn = child[key];
+                const output = rangeSet.or(currentColumn, childColumn);
                 if (output.length === 1 &&
                   output[0].min[0] === negativeInfinity &&
                   output[0].max[0] === positiveInfinity &&
@@ -371,12 +354,7 @@ export function traverseNode(
                   return [true];
                 }
                 currentList[i] = {
-                  columns: {
-                    [key]: {
-                      type: hasRange(output) ? 'range' : 'equal',
-                      set: output,
-                    },
-                  }
+                  [key]: output,
                 };
                 found = true;
               }
@@ -392,7 +370,7 @@ export function traverseNode(
       if (node.value.type === 'null') {
         switch (node.op) {
           case 'is': 
-            return createSingleSargNode(column, 'equal',
+            return createSingleSargNode(column,
               rangeSet.eq([negativeInfinity]));
           default:
             throw new Error('Unsupported NULL operation');
@@ -400,37 +378,37 @@ export function traverseNode(
       }
       switch (node.op) {
         case '=':
-          return createSingleSargNode(column, 'equal',
+          return createSingleSargNode(column,
             rangeSet.and(
               rangeSet.eq([node.value.value]),
               rangeSet.neq([negativeInfinity]),
             ));
         case '>':
-          return createSingleSargNode(column, 'range',
+          return createSingleSargNode(column,
             rangeSet.and(
               rangeSet.gt([node.value.value]),
               rangeSet.neq([negativeInfinity]),
             ));
         case '<':
-          return createSingleSargNode(column, 'range',
+          return createSingleSargNode(column,
             rangeSet.and(
               rangeSet.lt([node.value.value]),
               rangeSet.neq([negativeInfinity]),
             ));
         case '>=':
-          return createSingleSargNode(column, 'range',
+          return createSingleSargNode(column,
             rangeSet.and(
               rangeSet.gte([node.value.value]),
               rangeSet.neq([negativeInfinity]),
             ));
         case '<=':
-          return createSingleSargNode(column, 'range',
+          return createSingleSargNode(column,
             rangeSet.and(
               rangeSet.lte([node.value.value]),
               rangeSet.neq([negativeInfinity]),
             ));
         case '!=':
-          return createSingleSargNode(column, 'range',
+          return createSingleSargNode(column,
             rangeSet.and(
               rangeSet.neq([negativeInfinity]),
               rangeSet.neq([node.value.value]),
