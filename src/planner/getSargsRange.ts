@@ -2,7 +2,6 @@ import { Expression, BooleanValue, StringValue, NumberValue, NullValue }
   from 'yasqlp';
 import createRangeSetModule, { RangeSet } from 'range-set';
 
-import { NormalTable, Index } from '../table';
 import { AndGraphExpression } from '../expression/optimize/graph';
 import { rotateCompareOp } from '../expression/op';
 
@@ -202,36 +201,6 @@ export function getRangeNode(
       }
       break;
   }
-}
-
-interface IndexTreeNode {
-  columns: string[],
-  indexes: Index[],
-  children: { [key: string]: IndexTreeNode },
-}
-
-function getIndexTree(table: NormalTable): IndexTreeNode {
-  let output: IndexTreeNode = {
-    columns: [],
-    indexes: [],
-    children: {},
-  };
-  table.indexes.forEach((index) => {
-    output.indexes.push(index);
-    index.order.reduce((node, order) => {
-      let child = node.children[order.key];
-      if (child == null) {
-        child = node.children[order.key] = {
-          columns: [...node.columns, order.key],
-          indexes: [],
-          children: {},
-        };
-      }
-      child.indexes.push(index);
-      return child;
-    }, output);
-  });
-  return output;
 }
 
 type SargScanNode = {
