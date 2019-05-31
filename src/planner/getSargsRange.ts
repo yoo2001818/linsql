@@ -4,6 +4,7 @@ import createRangeSetModule, { RangeSet } from 'range-set';
 
 import { AndGraphExpression } from '../expression/optimize/graph';
 import { rotateCompareOp } from '../expression/op';
+import { IndexMap } from './getIndexMap';
 
 export const positiveInfinity = Symbol('+Infinity');
 export const negativeInfinity = Symbol('-Infinity / null');
@@ -220,6 +221,7 @@ function createSingleSargNode(
 
 export function traverseNode(
   node: RangeNode,
+  indexMap?: IndexMap,
 ): SargNode[] {
   switch (node.type) {
     case 'and': {
@@ -336,6 +338,9 @@ export function traverseNode(
     }
     case 'compare': {
       const column = node.column;
+      if (indexMap != null && indexMap[column] == null) {
+        return [true];
+      }
       if (node.value.type === 'null') {
         switch (node.op) {
           case 'is': 
