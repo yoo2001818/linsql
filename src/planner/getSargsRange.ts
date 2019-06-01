@@ -204,11 +204,11 @@ export function getRangeNode(
   }
 }
 
-type SargScanNode = {
+export type SargScanNode = {
   [key: string]: RangeSet<IndexValue>,
 }
 
-type SargNode = SargScanNode | true | false;
+export type SargNode = SargScanNode | true | false;
 
 function createSingleSargNode(
   column: string,
@@ -390,4 +390,13 @@ export function traverseNode(
       }
     }
   }
+}
+
+export default function getSargsRange(
+  name: string,
+  indexMap: IndexMap,
+  where: Expression,
+): SargNode[] {
+  let rangeNode = getRangeNode(name, where);
+  return traverseNode(rangeNode, indexMap);
 }
