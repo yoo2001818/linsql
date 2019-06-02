@@ -9,7 +9,7 @@ import { IndexMap } from './getIndexMap';
 export const positiveInfinity = Symbol('+Infinity');
 export const negativeInfinity = Symbol('-Infinity / null');
 
-type IndexValue = (
+export type IndexValue = (
   | string
   | number
   | boolean
