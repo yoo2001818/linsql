@@ -24,11 +24,31 @@ function getIndexCandidates(
     let indexes = indexMap[key];
     for (let index of indexes) {
       // For each index, descend if possible to do so.
+      let values = null;
       let depth = 0;
+      let fulfilled = true;
       for (let i = 0; i < index.order.length; i += 1) {
         let order = index.order[i];
-        if (node[order.key] == null) break;
+        let entry = node[order.key];
+        if (entry == null) break;
         depth += 1;
+        // Try to populate values..
+        if (values == null) {
+          values = entry;
+        } else {
+          // Should we bail out? bail out if there are too many entries...
+          let estimatedSize = values.length * entry.length;
+          if (estimatedSize > 1024) {
+            depth -= 1;
+            break;
+          }
+          for (let i = 0; i < values.length; i += 1) {
+            // In order to do this, we expect each value to be 'equal'.
+            for (let j = 0; j < entry.length; j += 1) {
+
+            }
+          }
+        }
       }
     }
   }
