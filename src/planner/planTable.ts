@@ -86,4 +86,7 @@ export default function planTable(
     return null;
   }
   // Check whether if we can merge index lookups into one.
+  let lookups = sargs
+    .filter(sarg => typeof sarg === 'object')
+    .map(sarg => getIndexCandidates(sarg as SargScanNode, indexMap));
 }
