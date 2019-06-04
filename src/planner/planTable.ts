@@ -42,14 +42,33 @@ function getIndexCandidates(
             depth -= 1;
             break;
           }
+          let output: RangeSet<IndexValue> = [];
           for (let i = 0; i < values.length; i += 1) {
             // In order to do this, we expect each value to be 'equal'.
+            let value = values[i];
+            if (!value.min.every((v, i) => value.max[i] === v)) {
+              fulfilled = false;
+              output.push(value);
+              continue;
+            }
             for (let j = 0; j < entry.length; j += 1) {
-
+              let v = entry[j];
+              output.push({
+                min: [...value.min, ...v.min],
+                max: [...value.max, ...v.max],
+                minEqual: v.minEqual,
+                maxEqual: v.maxEqual,
+              });
             }
           }
+          values = output;
         }
       }
+      output.push({
+        index,
+        depth,
+        ranges: values,
+      });
     }
   }
   return output;
