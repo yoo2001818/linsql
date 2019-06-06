@@ -74,6 +74,18 @@ function getIndexCandidates(
   return output;
 }
 
+function pickIndexCandidate(
+  sarg: SargScanNode,
+  indexMap: IndexMap,
+  table: NormalTable,
+): IndexLookup {
+  let candidates = getIndexCandidates(sarg, indexMap);
+  // Try to pick the best index. 
+  let minScore = Infinity;
+  let minIndex = 0;
+  return candidates[0];
+}
+
 export default function planTable(
   name: string,
   table: NormalTable,
@@ -81,12 +93,11 @@ export default function planTable(
 ): SelectPlan | null {
   let indexMap = getIndexMap(table);
   let sargs = getSargsRange(name, indexMap, where);
-  if (sargs.length === 0) {
-    // This always returns nothing.
-    return null;
-  }
+  // Sargs can have false-positive, but it can't have false-negative. Therefore,
+  // if one of the value is false, it can just return null.
+  if (sargs.length > 0 && sargs.some(v => v === false)) return null;
   // Check whether if we can merge index lookups into one.
   let lookups = sargs
     .filter(sarg => typeof sarg === 'object')
-    .map(sarg => getIndexCandidates(sarg as SargScanNode, indexMap));
+    .map(sarg => pickIndexCandidate(sarg as SargScanNode, indexMap, table));
 }
