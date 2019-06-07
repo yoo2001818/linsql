@@ -81,9 +81,20 @@ function pickIndexCandidate(
 ): IndexLookup {
   let candidates = getIndexCandidates(sarg, indexMap);
   // Try to pick the best index. 
-  let minScore = Infinity;
+  let minCost = Infinity;
   let minIndex = 0;
-  return candidates[0];
+  for (let i = 0; i < candidates.length; i += 1) {
+    let candidate = candidates[i];
+    // In order to calculate the actual cost, we'd have to 'dive' into the
+    // index. Unfortunately, that hasn't been implemented yet - so let's just
+    // use the index's depth.
+    let cost = -candidate.depth;
+    if (minCost > cost) {
+      minCost = cost;
+      minIndex = i;
+    }
+  }
+  return candidates[minIndex];
 }
 
 export default function planTable(
@@ -100,4 +111,5 @@ export default function planTable(
   let lookups = sargs
     .filter(sarg => typeof sarg === 'object')
     .map(sarg => pickIndexCandidate(sarg as SargScanNode, indexMap, table));
+  console.log(lookups);
 }
