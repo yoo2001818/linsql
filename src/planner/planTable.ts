@@ -107,9 +107,20 @@ export default function planTable(
   // Sargs can have false-positive, but it can't have false-negative. Therefore,
   // if one of the value is false, it can just return null.
   if (sargs.length > 0 && sargs.some(v => v === false)) return null;
-  // Check whether if we can merge index lookups into one.
+  // Check whether if we can merge index lookups into one. This would be
+  // possible if the index is same, or the index can be replaced by index with
+  // more depth.
   let lookups = sargs
     .filter(sarg => typeof sarg === 'object')
     .map(sarg => pickIndexCandidate(sarg as SargScanNode, indexMap, table));
+  let output = [];
+  for (let i = 0; i < lookups.length; i += 1) {
+    let iNode = lookups[i];
+    for (let j = 0; j < lookups.length; j += 1) {
+      if (i === j) continue;
+      let jNode = lookups[j];
+      // Check if the node can be absorbed by other node.
+    }
+  }
   console.log(lookups);
 }

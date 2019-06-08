@@ -40,4 +40,4 @@ let table: NormalTable = {
 };
 
 planTable('a', table, optimize(
-  getWhere('SELECT * FROM a WHERE a.a = 1 AND a.b = 3;')));
+  getWhere('SELECT * FROM a WHERE a.a > 3 OR (a.a = 3 AND a.b >= 2);')));
