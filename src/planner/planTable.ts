@@ -4,7 +4,13 @@ import { RangeSet } from 'range-set';
 import { NormalTable, Index } from '../table';
 import { SelectPlan } from './type';
 import getIndexMap, { IndexMap } from './getIndexMap';
-import getSargsRange, { SargScanNode, IndexValue } from './getSargsRange';
+import getSargsRange, {
+  SargScanNode,
+  IndexValue,
+  positiveInfinity,
+  negativeInfinity,
+  rangeSet,
+} from './getSargsRange';
 
 interface IndexLookup {
   index: Index,
@@ -116,10 +122,30 @@ export default function planTable(
   let output = [];
   for (let i = 0; i < lookups.length; i += 1) {
     let iNode = lookups[i];
+    // Merge is tricky, because it can happen to any of the node, and if
+    // merge happens, it has to iterate over everything again.
+    // For now, after merging is done, let's reset the i and j to 0, so it can
+    // evaluate the value again.
+    // Merge direction: j -> i.
     for (let j = 0; j < lookups.length; j += 1) {
       if (i === j) continue;
       let jNode = lookups[j];
       // Check if the node can be absorbed by other node.
+      if (iNode.depth >= jNode.depth &&
+        iNode.index.order.slice(0, iNode.depth).every(
+          (v, i) => jNode.index.order[i].key === v.key)
+      ) {
+        // It can be absorbed - merge the node, while attaching '-Infinity' and
+        // 'Infinity' to smaller node.
+        iNode = {
+          ...iNode,
+          ranges: rangeSet.and(
+            iNode.ranges,
+          ),
+        };
+        i = -1;
+        j = -1;
+      }
     }
   }
   console.log(lookups);
