@@ -119,7 +119,6 @@ export default function planTable(
   let lookups = sargs
     .filter(sarg => typeof sarg === 'object')
     .map(sarg => pickIndexCandidate(sarg as SargScanNode, indexMap, table));
-  let output = [];
   for (let i = 0; i < lookups.length; i += 1) {
     let iNode = lookups[i];
     // Merge is tricky, because it can happen to any of the node, and if
@@ -132,21 +131,54 @@ export default function planTable(
       let jNode = lookups[j];
       // Check if the node can be absorbed by other node.
       if (iNode.depth >= jNode.depth &&
-        iNode.index.order.slice(0, iNode.depth).every(
-          (v, i) => jNode.index.order[i].key === v.key)
+        jNode.index.order.slice(0, jNode.depth).every(
+          (v, i) => iNode.index.order[i].key === v.key)
       ) {
         // It can be absorbed - merge the node, while attaching '-Infinity' and
         // 'Infinity' to smaller node.
-        iNode = {
+        let appendagesPositive: IndexValue = [];
+        let appendagesNegative: IndexValue = [];
+        for (let v = jNode.depth; v < iNode.depth; v += 1) {
+          appendagesPositive.push(positiveInfinity);
+          appendagesNegative.push(negativeInfinity);
+        }
+
+        console.log(iNode.ranges, jNode.ranges);
+        console.log(jNode.ranges.map((range) => ({
+          ...range,
+          min: [
+            ...range.min,
+            ...(range.minEqual ? appendagesNegative : appendagesPositive),
+          ],
+          max: [
+            ...range.max,
+            ...(range.maxEqual ? appendagesPositive : appendagesNegative),
+          ],
+        })));
+        let newNode = {
           ...iNode,
-          ranges: rangeSet.and(
+          ranges: rangeSet.or(
             iNode.ranges,
+            jNode.ranges.map((range) => ({
+              ...range,
+              min: [
+                ...range.min,
+                ...(range.minEqual ? appendagesNegative : appendagesPositive),
+              ],
+              max: [
+                ...range.max,
+                ...(range.maxEqual ? appendagesPositive : appendagesNegative),
+              ],
+            })),
           ),
         };
-        i = -1;
-        j = -1;
+        console.log(newNode.ranges);
+        lookups[i] = newNode;
+        lookups.splice(j, 1);
+        i = 0;
+        j = 0;
       }
     }
   }
-  console.log(lookups);
+  console.dir(lookups, { depth: null });
 }
