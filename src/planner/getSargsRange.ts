@@ -23,10 +23,10 @@ export const rangeSetDescriptor = {
     for (let i = 0; i < a.length; i += 1) {
       const aValue = a[i];
       const bValue = b[i];
-      if (aValue === positiveInfinity && bValue === positiveInfinity) return 0;
+      if (aValue === positiveInfinity && bValue === positiveInfinity) continue;
       if (aValue === positiveInfinity) return 1;
       if (bValue === positiveInfinity) return -1;
-      if (aValue === negativeInfinity && bValue === negativeInfinity) return 0;
+      if (aValue === negativeInfinity && bValue === negativeInfinity) continue;
       if (aValue === negativeInfinity) return -1;
       if (bValue === negativeInfinity) return 1;
       if (typeof aValue === 'symbol' || typeof bValue === 'symbol') {
@@ -37,7 +37,6 @@ export const rangeSetDescriptor = {
       }
       if (aValue > bValue) return 1;
       if (aValue < bValue) return -1;
-      return 0;
     }
     return 0;
   },

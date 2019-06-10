@@ -54,7 +54,18 @@ function getIndexCandidates(
             let value = values[i];
             if (!value.min.every((v, i) => value.max[i] === v)) {
               fulfilled = false;
-              output.push(value);
+              output.push({
+                min: [
+                  ...value.min,
+                  value.minEqual ? negativeInfinity : positiveInfinity,
+                ],
+                max: [
+                  ...value.max,
+                  value.maxEqual ? positiveInfinity : negativeInfinity,
+                ],
+                minEqual: value.minEqual,
+                maxEqual: value.maxEqual,
+              });
               continue;
             }
             for (let j = 0; j < entry.length; j += 1) {
@@ -143,18 +154,6 @@ export default function planTable(
           appendagesNegative.push(negativeInfinity);
         }
 
-        console.log(iNode.ranges, jNode.ranges);
-        console.log(jNode.ranges.map((range) => ({
-          ...range,
-          min: [
-            ...range.min,
-            ...(range.minEqual ? appendagesNegative : appendagesPositive),
-          ],
-          max: [
-            ...range.max,
-            ...(range.maxEqual ? appendagesPositive : appendagesNegative),
-          ],
-        })));
         let newNode = {
           ...iNode,
           ranges: rangeSet.or(
@@ -172,7 +171,6 @@ export default function planTable(
             })),
           ),
         };
-        console.log(newNode.ranges);
         lookups[i] = newNode;
         lookups.splice(j, 1);
         i = 0;
