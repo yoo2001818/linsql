@@ -1,4 +1,4 @@
-import { Expression } from 'yasqlp';
+import { Expression, OrderByRef } from 'yasqlp';
 import { RangeSet } from 'range-set';
 
 import { NormalTable, Index } from '../table';
@@ -16,6 +16,7 @@ interface IndexLookup {
   index: Index,
   depth: number,
   ranges: RangeSet<IndexValue>,
+  cost: number,
 }
 
 function getIndexCandidates(
@@ -81,10 +82,19 @@ function getIndexCandidates(
           values = output;
         }
       }
+      // In order to calculate approximated cost, we can use table histogram if
+      // available. Since linsql supports neither table histogram and index
+      // diving, let's just simply approximate the value.
+      //
+      // If the index is purely composed of '=' queries, we can use them to
+      // calculate exact cardinality and cost. However, it's best to rely on
+      // the histogram data. It's not available for now - so let's just
+      // table's cardinality?
       output.push({
         index,
         depth,
         ranges: values,
+        cost: -index.cardinality - depth,
       });
     }
   }
@@ -102,10 +112,7 @@ function pickIndexCandidate(
   let minIndex = 0;
   for (let i = 0; i < candidates.length; i += 1) {
     let candidate = candidates[i];
-    // In order to calculate the actual cost, we'd have to 'dive' into the
-    // index. Unfortunately, that hasn't been implemented yet - so let's just
-    // use the index's depth.
-    let cost = -candidate.depth;
+    let cost = candidate.cost;
     if (minCost > cost) {
       minCost = cost;
       minIndex = i;
@@ -118,6 +125,8 @@ export default function planTable(
   name: string,
   table: NormalTable,
   where: Expression,
+  orderHint?: OrderByRef[],
+  groupHint?: Expression[],
 ): SelectPlan | null {
   let indexMap = getIndexMap(table);
   let sargs = getSargsRange(name, indexMap, where);

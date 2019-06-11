@@ -1,6 +1,6 @@
 import { SelectStatement } from 'yasqlp';
 
-export type ColumnType = 'string' | 'number' | 'boolean';
+export type ColumnType = 'string' | 'number' | 'integer' | 'boolean';
 
 export interface Order {
   key: string,
