@@ -1,7 +1,7 @@
 import parse from 'yasqlp';
 import planTable from './planner/planTable';
 import optimize from './expression/optimize';
-import { getWhere } from './util/select';
+import { getWhere, getOrderBy } from './util/select';
 import { NormalTable } from './table';
 
 let table: NormalTable = {
@@ -33,6 +33,17 @@ let table: NormalTable = {
       cardinality: 0,
       count: 0,
     },
+    {
+      name: 'a_b_c',
+      order: [
+        { key: 'a', type: 'string', order: false },
+        { key: 'b', type: 'string', order: false },
+        { key: 'c', type: 'string', order: false },
+      ],
+      unique: false,
+      cardinality: 0,
+      count: 0,
+    },
   ],
   order: [],
   count: 1000,
@@ -43,4 +54,5 @@ planTable('a', table, optimize(
   getWhere('SELECT * FROM a WHERE a.a > 3 OR (a.a = 3 AND a.b >= 2);')));
 
 planTable('a', table, optimize(
-  getWhere('SELECT * FROM a WHERE a.a = 3 OR a.b = 4 OR a.a = 6;')));
+  getWhere('SELECT * FROM a WHERE a.a = 3 OR a.b = 4 OR a.a = 6;')),
+  getOrderBy('SELECT 1 ORDER BY a.b;'));

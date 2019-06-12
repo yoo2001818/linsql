@@ -10,6 +10,7 @@ import getSargsRange, {
   positiveInfinity,
   negativeInfinity,
   rangeSet,
+  rangeSetDescriptor,
 } from './getSargsRange';
 
 interface IndexLookup {
@@ -22,10 +23,13 @@ interface IndexLookup {
 function getIndexCandidates(
   node: SargScanNode,
   indexMap: IndexMap,
+  table: NormalTable,
+  orderHint?: OrderByRef[],
 ): IndexLookup[] {
   // This should return the possible index lookups for given sarg lookup.
   // a -> b -> c -> d
   let output: IndexLookup[] = [];
+  let orderHintIndex: number = 0;
   for (let key in node) {
     if (indexMap[key] == null) continue;
     let indexes = indexMap[key];
@@ -34,14 +38,44 @@ function getIndexCandidates(
       let values = null;
       let depth = 0;
       let fulfilled = true;
+      let hasRange = false;
       for (let i = 0; i < index.order.length; i += 1) {
         let order = index.order[i];
         let entry = node[order.key];
-        if (entry == null) break;
+        if (entry == null) {
+          // If order hint was specified, and hasRange is not true therefore
+          // order by can be fulfilled, we can pull orderHints where possible.
+          let orderHintValue = orderHint != null && orderHint[orderHintIndex];
+          if (orderHintValue) {
+            let entry = orderHintValue.value;
+            if (entry.type === 'column' && entry.name === order.key) {
+              // We can use this! append to the results...
+              depth += 1;
+              orderHintIndex += 1;
+              values = values.map(value => ({
+                min: [
+                  ...value.min,
+                  value.minEqual ? negativeInfinity : positiveInfinity,
+                ],
+                max: [
+                  ...value.max,
+                  value.maxEqual ? positiveInfinity : negativeInfinity,
+                ],
+                minEqual: value.minEqual,
+                maxEqual: value.maxEqual,
+              }));
+            }
+          }
+          break;
+        }
         depth += 1;
         // Try to populate values..
         if (values == null) {
           values = entry;
+          if (!hasRange) {
+            hasRange = values.some(v =>
+              rangeSetDescriptor.compare(v.min, v.max) !== 0);
+          }
         } else {
           // Should we bail out? bail out if there are too many entries...
           let estimatedSize = values.length * entry.length;
@@ -68,6 +102,10 @@ function getIndexCandidates(
                 maxEqual: value.maxEqual,
               });
               continue;
+            }
+            if (!hasRange) {
+              hasRange = entry.some(v =>
+                rangeSetDescriptor.compare(v.min, v.max) !== 0);
             }
             for (let j = 0; j < entry.length; j += 1) {
               let v = entry[j];
@@ -105,8 +143,9 @@ function pickIndexCandidate(
   sarg: SargScanNode,
   indexMap: IndexMap,
   table: NormalTable,
+  orderHint?: OrderByRef[],
 ): IndexLookup {
-  let candidates = getIndexCandidates(sarg, indexMap);
+  let candidates = getIndexCandidates(sarg, indexMap, table, orderHint);
   // Try to pick the best index. 
   let minCost = Infinity;
   let minIndex = 0;
@@ -126,7 +165,6 @@ export default function planTable(
   table: NormalTable,
   where: Expression,
   orderHint?: OrderByRef[],
-  groupHint?: Expression[],
 ): SelectPlan | null {
   let indexMap = getIndexMap(table);
   let sargs = getSargsRange(name, indexMap, where);
@@ -138,7 +176,8 @@ export default function planTable(
   // more depth.
   let lookups = sargs
     .filter(sarg => typeof sarg === 'object')
-    .map(sarg => pickIndexCandidate(sarg as SargScanNode, indexMap, table));
+    .map(sarg => pickIndexCandidate(
+      sarg as SargScanNode, indexMap, table, orderHint));
   for (let i = 0; i < lookups.length; i += 1) {
     let iNode = lookups[i];
     // Merge is tricky, because it can happen to any of the node, and if
