@@ -42,11 +42,11 @@ function getIndexCandidates(
       for (let i = 0; i < index.order.length; i += 1) {
         let order = index.order[i];
         let entry = node[order.key];
+        // If order hint was specified, and hasRange is not true therefore
+        // order by can be fulfilled, we can pull orderHints where possible.
+        let orderHintValue = orderHint != null && orderHint[orderHintIndex];
         if (entry == null) {
-          // If order hint was specified, and hasRange is not true therefore
-          // order by can be fulfilled, we can pull orderHints where possible.
-          let orderHintValue = orderHint != null && orderHint[orderHintIndex];
-          if (orderHintValue) {
+          if (orderHintValue && !hasRange) {
             let entry = orderHintValue.value;
             if (entry.type === 'column' && entry.name === order.key) {
               // We can use this! append to the results...
@@ -67,6 +67,12 @@ function getIndexCandidates(
             }
           }
           break;
+        }
+        if (orderHintValue && !hasRange) {
+          let entry = orderHintValue.value;
+          if (entry.type === 'column' && entry.name === order.key) {
+            orderHintIndex += 1;
+          }
         }
         depth += 1;
         // Try to populate values..
