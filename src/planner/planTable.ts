@@ -134,11 +134,17 @@ function getIndexCandidates(
       // calculate exact cardinality and cost. However, it's best to rely on
       // the histogram data. It's not available for now - so let's just
       // table's cardinality?
+      // 
+      // For the sake of simplicity, let's use min / max value for index diving.
+      let minValue = values[0];
+      let maxValue = values[values.length - 1];
+      let cost = table.getStatistics(index.name,
+        minValue.min, maxValue.max, minValue.minEqual, maxValue.maxEqual).count;
       output.push({
         index,
         depth,
         ranges: values,
-        cost: -index.cardinality - depth,
+        cost,
       });
     }
   }

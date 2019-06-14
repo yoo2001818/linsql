@@ -34,6 +34,8 @@ export interface NormalTable extends BaseTable {
   indexes: Index[],
   order: Order[],
   count: number,
+  getStatistics: (indexName: string, low: any[], high: any[],
+    lte: boolean, gte: boolean) => { count: number },
   fetch: (indexName?: string, low?: any[], high?: any[],
     lte?: boolean, gte?: boolean) => Iterator<Promise<any[]>>,
 }
