@@ -18,6 +18,7 @@ interface IndexLookup {
   depth: number,
   ranges: RangeSet<IndexValue>,
   cost: number,
+  shouldSort: boolean,
 }
 
 function getIndexCandidates(
@@ -29,7 +30,6 @@ function getIndexCandidates(
   // This should return the possible index lookups for given sarg lookup.
   // a -> b -> c -> d
   let output: IndexLookup[] = [];
-  let orderHintIndex: number = 0;
   for (let key in node) {
     if (indexMap[key] == null) continue;
     let indexes = indexMap[key];
@@ -39,6 +39,7 @@ function getIndexCandidates(
       let depth = 0;
       let fulfilled = true;
       let hasRange = false;
+      let orderHintIndex: number = 0;
       for (let i = 0; i < index.order.length; i += 1) {
         let order = index.order[i];
         let entry = node[order.key];
@@ -140,11 +141,15 @@ function getIndexCandidates(
       let maxValue = values[values.length - 1];
       let cost = table.getStatistics(index.name,
         minValue.min, maxValue.max, minValue.minEqual, maxValue.maxEqual).count;
+      let shouldSort = orderHint != null && orderHintIndex !== orderHint.length;
+      // Add sort cost.
+      if (shouldSort) cost *= Math.log2(cost);
       output.push({
         index,
         depth,
         ranges: values,
         cost,
+        shouldSort,
       });
     }
   }
