@@ -1,4 +1,6 @@
 import { TableRef, OrderByRef, Expression, SelectColumn } from 'yasqlp';
+import { RangeSet } from 'range-set';
+import { IndexValue } from './rangeSet';
 
 export type BasePlan = {
   type: string,
@@ -14,6 +16,14 @@ export type FullScanPlan = BasePlan & {
   type: 'fullScan',
   table: TableRef,
   name: string,
+};
+
+export type IndexScanPlan = BasePlan & {
+  type: 'indexScan',
+  table: TableRef,
+  name: string,
+  indexName: string,
+  ranges: RangeSet<IndexValue>,
 };
 
 export type FilterPlan = BasePlan & {
@@ -111,6 +121,7 @@ export type MaterializePlan = BasePlan & {
 
 export type HashPlan = HashGeneratePlan | HashMergePlan;
 
-export type SelectPlan = ConstantPlan | FullScanPlan | FilterPlan | SortPlan |
+export type SelectPlan = ConstantPlan | FullScanPlan | IndexScanPlan |
+  FilterPlan | SortPlan |
   AggregatePlan | LimitPlan | OutputPlan | UniquePlan | UnionPlan |
   NestedJoinPlan | MergeJoinPlan | HashJoinPlan | MaterializePlan;

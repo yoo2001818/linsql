@@ -4,14 +4,14 @@ import { RangeSet } from 'range-set';
 import { NormalTable, Index } from '../table';
 import { SelectPlan } from './type';
 import getIndexMap, { IndexMap } from './getIndexMap';
-import getSargsRange, {
-  SargScanNode,
-  IndexValue,
+import getSargsRange, { SargScanNode } from './getSargsRange';
+import {
   positiveInfinity,
   negativeInfinity,
   rangeSet,
   rangeSetDescriptor,
-} from './getSargsRange';
+  IndexValue,
+} from './rangeSet';
 
 interface IndexLookup {
   index: Index,
