@@ -243,5 +243,32 @@ export default function planTable(
       }
     }
   }
-  console.dir(lookups, { depth: null });
+  if (lookups.length === 0) {
+    return {
+      type: 'fullScan',
+      table: { type: 'table', name: table.name },
+      name,
+      cost: table.count,
+      totalCost: table.count,
+    }
+  }
+  const indexPlans = lookups.map((v): SelectPlan => ({
+    type: 'indexScan',
+    table: { type: 'table', name: table.name },
+    name,
+    indexName: v.index.name,
+    ranges: v.ranges,
+    cost: v.cost,
+    totalCost: v.cost,
+  }));
+  if (lookups.length === 1) {
+    return indexPlans[0];
+  }
+  return {
+    type: 'union',
+    ordered: false,
+    inputs: indexPlans,
+    cost: lookups.reduce((p, v) => p + v.cost, 0),
+    totalCost: lookups.reduce((p, v) => p + v.cost, 0),
+  };
 }
