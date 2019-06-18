@@ -18,7 +18,9 @@ interface IndexLookup {
   depth: number,
   ranges: RangeSet<IndexValue>,
   cost: number,
+  totalCost: number,
   shouldSort: boolean,
+  shouldFilter: boolean,
 }
 
 function getIndexCandidates(
@@ -39,6 +41,9 @@ function getIndexCandidates(
       let depth = 0;
       let fulfilled = true;
       let hasRange = false;
+      // count of orderBys without accompanying node. Used to calculate if we
+      // need to filter the table further.
+      let orderHintAloneIndex: number = 0;
       let orderHintIndex: number = 0;
       for (let i = 0; i < index.order.length; i += 1) {
         let order = index.order[i];
@@ -53,6 +58,7 @@ function getIndexCandidates(
               // We can use this! append to the results...
               depth += 1;
               orderHintIndex += 1;
+              orderHintAloneIndex += 1;
               values = values.map(value => ({
                 min: [
                   ...value.min,
@@ -142,14 +148,20 @@ function getIndexCandidates(
       let cost = table.getStatistics(index.name,
         minValue.min, maxValue.max, minValue.minEqual, maxValue.maxEqual).count;
       let shouldSort = orderHint != null && orderHintIndex !== orderHint.length;
+      let shouldFilter = 
+        (depth - orderHintAloneIndex) <= Object.keys(node).length &&
+        fulfilled;
+      let totalCost = cost;
       // Add sort cost.
-      if (shouldSort) cost *= Math.log2(cost);
+      if (shouldSort) totalCost *= Math.log2(cost);
       output.push({
         index,
         depth,
         ranges: values,
         cost,
+        totalCost,
         shouldSort,
+        shouldFilter,
       });
     }
   }
