@@ -10,6 +10,8 @@ export type BasePlan = {
 
 export type ConstantPlan = {
   type: 'constant',
+  cost: 0,
+  totalCost: 0,
 };
 
 export type FullScanPlan = BasePlan & {
@@ -74,6 +76,13 @@ export type UnionPlan = BasePlan & {
   inputs: SelectPlan[],
 };
 
+export type MergePlan = BasePlan & {
+  type: 'merge',
+  inputs: SelectPlan[],
+  order: OrderByRef[] | null,
+  unique: boolean,
+};
+
 export type NestedJoinPlan = BasePlan & {
   type: 'nestedJoin',
   left: SelectPlan,
@@ -122,6 +131,6 @@ export type MaterializePlan = BasePlan & {
 export type HashPlan = HashGeneratePlan | HashMergePlan;
 
 export type SelectPlan = ConstantPlan | FullScanPlan | IndexScanPlan |
-  FilterPlan | SortPlan |
+  FilterPlan | SortPlan | MergePlan |
   AggregatePlan | LimitPlan | OutputPlan | UniquePlan | UnionPlan |
   NestedJoinPlan | MergeJoinPlan | HashJoinPlan | MaterializePlan;

@@ -255,32 +255,55 @@ export default function planTable(
       }
     }
   }
+  let output: SelectPlan;
   if (lookups.length === 0) {
-    return {
+    output = {
       type: 'fullScan',
       table: { type: 'table', name: table.name },
       name,
       cost: table.count,
       totalCost: table.count,
     }
+  } else {
+    const indexPlans = lookups.map((v): SelectPlan => ({
+      type: 'indexScan',
+      table: { type: 'table', name: table.name },
+      name,
+      indexName: v.index.name,
+      ranges: v.ranges,
+      cost: v.cost,
+      totalCost: v.cost,
+    }));
+    if (lookups.length === 1) {
+      output = indexPlans[0];
+    } else {
+      output = {
+        type: 'merge',
+        inputs: indexPlans,
+        order: null,
+        unique: false,
+        cost: lookups.reduce((p, v) => p + v.cost, 0),
+        totalCost: lookups.reduce((p, v) => p + v.cost, 0),
+      };
+    }
   }
-  const indexPlans = lookups.map((v): SelectPlan => ({
-    type: 'indexScan',
-    table: { type: 'table', name: table.name },
-    name,
-    indexName: v.index.name,
-    ranges: v.ranges,
-    cost: v.cost,
-    totalCost: v.cost,
-  }));
-  if (lookups.length === 1) {
-    return indexPlans[0];
+  if (lookups.some(v => v.shouldFilter)) {
+    output = {
+      type: 'filter',
+      value: where,
+      input: output,
+      cost: 0,
+      totalCost: output.totalCost,
+    };
   }
-  return {
-    type: 'union',
-    ordered: false,
-    inputs: indexPlans,
-    cost: lookups.reduce((p, v) => p + v.cost, 0),
-    totalCost: lookups.reduce((p, v) => p + v.cost, 0),
-  };
+  if (lookups.some(v => v.shouldSort)) {
+    output = {
+      type: 'sort',
+      order: orderHint,
+      input: output,
+      cost: output.totalCost * Math.log10(output.totalCost),
+      totalCost: output.totalCost,
+    };
+  }
+  return output;
 }
