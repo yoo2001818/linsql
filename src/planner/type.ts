@@ -6,12 +6,14 @@ export type BasePlan = {
   type: string,
   cost: number,
   totalCost: number,
+  rows: number,
 };
 
 export type ConstantPlan = {
   type: 'constant',
   cost: 0,
   totalCost: 0,
+  rows: 1,
 };
 
 export type FullScanPlan = BasePlan & {

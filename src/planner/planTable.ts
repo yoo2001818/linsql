@@ -19,6 +19,7 @@ interface IndexLookup {
   ranges: RangeSet<IndexValue>,
   cost: number,
   totalCost: number,
+  rows: number,
   shouldSort: boolean,
   shouldFilter: boolean,
 }
@@ -160,6 +161,7 @@ function getIndexCandidates(
         ranges: values,
         cost,
         totalCost,
+        rows: cost,
         shouldSort,
         shouldFilter,
       });
@@ -263,6 +265,7 @@ export default function planTable(
       name,
       cost: table.count,
       totalCost: table.count,
+      rows: table.count,
     }
   } else {
     const indexPlans = lookups.map((v): SelectPlan => ({
@@ -273,6 +276,7 @@ export default function planTable(
       ranges: v.ranges,
       cost: v.cost,
       totalCost: v.cost,
+      rows: v.rows,
     }));
     if (lookups.length === 1) {
       output = indexPlans[0];
@@ -284,6 +288,7 @@ export default function planTable(
         unique: false,
         cost: lookups.reduce((p, v) => p + v.cost, 0),
         totalCost: lookups.reduce((p, v) => p + v.cost, 0),
+        rows: lookups.reduce((p, v) => p + v.rows, 0),
       };
     }
   }
@@ -294,6 +299,7 @@ export default function planTable(
       input: output,
       cost: 0,
       totalCost: output.totalCost,
+      rows: output.rows,
     };
   }
   if (lookups.some(v => v.shouldSort)) {
@@ -303,6 +309,7 @@ export default function planTable(
       input: output,
       cost: output.totalCost * Math.log10(output.totalCost),
       totalCost: output.totalCost,
+      rows: output.rows,
     };
   }
   return output;
