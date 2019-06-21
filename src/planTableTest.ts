@@ -4,6 +4,24 @@ import optimize from './expression/optimize';
 import { getWhere, getOrderBy } from './util/select';
 import { NormalTable } from './table';
 
+let randTable: { [key: string]: string[] } = {
+  a: ['a', 'b', 'c', 'aab', 'baa', 'bee', 'bee', 'bee', 'coo'],
+  b: ['a', 'b', 'c', 'aab', 'baa', 'bee', 'bee', 'bee', 'coo'],
+  c: ['a', 'b', 'c', 'aab', 'baa', 'bee', 'bee', 'bee', 'coo'],
+};
+let testData: any[] = [];
+// Generate test data...
+for (let i = 0; i < 100000; i += 1) {
+  let output: { [key: string]: string } = {};
+  for (let key in randTable) {
+    output[key] = randTable[key][randTable[key].length * Math.random() | 0];
+  }
+  testData.push(output);
+}
+// Create index information
+let indexData: { [key: string]: any[] } = {};
+
+
 let table: NormalTable = {
   type: 'normal',
   name: 'a',
