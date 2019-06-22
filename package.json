@@ -33,7 +33,6 @@
   "dependencies": {
     "@types/deep-equal": "^1.0.1",
     "@types/lodash.clonedeep": "^4.5.6",
-    "async-btree": "^1.0.6",
     "deep-equal": "^1.0.1",
     "lodash.clonedeep": "^4.5.0",
     "range-set": "^0.1.2",
