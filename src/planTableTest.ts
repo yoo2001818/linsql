@@ -71,6 +71,50 @@ indexList.forEach((index) => {
   indexData[index.name] = values;
 });
 
+function findMin<T, V>(
+  list: T[],
+  value: V,
+  compare: (a: V, b: V) => number,
+  getValue: (entry: T) => V,
+): { pos: number, match: boolean } {
+  let min = 0;
+  let max = list.length - 1;
+  while (min <= max) {
+    const mid = Math.floor((min + max) / 2);
+    const comp = compare(getValue(list[mid]), value);
+    if (comp < 0) {
+      min = mid + 1;
+    } else if (comp > 0) {
+      max = mid - 1;
+    } else {
+      return { pos: mid, match: true };
+    }
+  }
+  return { pos: min, match: false };
+}
+
+function findMax<T, V>(
+  list: T[],
+  value: V,
+  compare: (a: V, b: V) => number,
+  getValue: (entry: T) => V,
+): { pos: number, match: boolean } {
+  let min = 0;
+  let max = list.length - 1;
+  while (min <= max) {
+    const mid = Math.floor((min + max) / 2);
+    const comp = compare(getValue(list[mid]), value);
+    if (comp < 0) {
+      min = mid + 1;
+    } else if (comp > 0) {
+      max = mid - 1;
+    } else {
+      return { pos: mid, match: true };
+    }
+  }
+  return { pos: min, match: false };
+}
+
 let table: NormalTable = {
   type: 'normal',
   name: 'a',
@@ -80,14 +124,23 @@ let table: NormalTable = {
   count: 1000,
   fetch: null,
   getStatistics: (name, low, high, lte, gte) => {
-    // run binary search
-    return { count: 0 };
+    let indexMeta = indexList.find(v => v.name === name);
+    let index = indexData[name];
+    const compare = (a: any, b: any) => 0;
+    const getValue = (v: any) => indexMeta.order.map(k => v[k.key]);
+    return {
+      count: 
+        findMax(index, high, compare, getValue).pos - 
+        findMin(index, low, compare, getValue).pos,
+    }
   },
 };
 
-planTable('a', table, optimize(
-  getWhere('SELECT * FROM a WHERE a.a > 3 OR (a.a = 3 AND a.b >= 2);')));
+console.dir(planTable('a', table, optimize(
+  getWhere('SELECT * FROM a WHERE a.a > 3 OR (a.a = 3 AND a.b >= 2);'))),
+  { depth: null });
 
-planTable('a', table, optimize(
+console.dir(planTable('a', table, optimize(
   getWhere('SELECT * FROM a WHERE a.a = 3 OR a.b = 4 OR a.a = 6;')),
-  getOrderBy('SELECT 1 ORDER BY a.b;'));
+  getOrderBy('SELECT 1 ORDER BY a.b;')),
+  { depth: null });
