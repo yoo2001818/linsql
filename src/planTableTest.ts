@@ -1,6 +1,7 @@
 import parse from 'yasqlp';
 import planTable from './planner/planTable';
 import optimize from './expression/optimize';
+import { compare } from './planner/rangeSet';
 import { getWhere, getOrderBy } from './util/select';
 import { NormalTable, Index } from './table';
 
@@ -76,7 +77,7 @@ function findMin<T, V>(
   value: V,
   compare: (a: V, b: V) => number,
   getValue: (entry: T) => V,
-): { pos: number, match: boolean } {
+): { pos: number } {
   let min = 0;
   let max = list.length - 1;
   while (min <= max) {
@@ -87,10 +88,10 @@ function findMin<T, V>(
     } else if (comp > 0) {
       max = mid - 1;
     } else {
-      return { pos: mid, match: true };
+      return { pos: mid };
     }
   }
-  return { pos: min, match: false };
+  return { pos: min };
 }
 
 function findMax<T, V>(
@@ -98,7 +99,7 @@ function findMax<T, V>(
   value: V,
   compare: (a: V, b: V) => number,
   getValue: (entry: T) => V,
-): { pos: number, match: boolean } {
+): { pos: number } {
   let min = 0;
   let max = list.length - 1;
   while (min <= max) {
@@ -109,10 +110,10 @@ function findMax<T, V>(
     } else if (comp > 0) {
       max = mid - 1;
     } else {
-      return { pos: mid, match: true };
+      return { pos: mid };
     }
   }
-  return { pos: min, match: false };
+  return { pos: min };
 }
 
 let table: NormalTable = {
@@ -126,7 +127,6 @@ let table: NormalTable = {
   getStatistics: (name, low, high, lte, gte) => {
     let indexMeta = indexList.find(v => v.name === name);
     let index = indexData[name];
-    const compare = (a: any, b: any) => 0;
     const getValue = (v: any) => indexMeta.order.map(k => v[k.key]);
     return {
       count: 
