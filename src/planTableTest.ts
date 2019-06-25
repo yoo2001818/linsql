@@ -5,15 +5,15 @@ import { compare } from './planner/rangeSet';
 import { getWhere, getOrderBy } from './util/select';
 import { NormalTable, Index } from './table';
 
-let randTable: { [key: string]: string[] } = {
-  a: ['a', 'b', 'c', 'aab', 'baa', 'bee', 'bee', 'bee', 'coo'],
-  b: ['a', 'b', 'c', 'aab', 'baa', 'bee', 'bee', 'bee', 'coo'],
-  c: ['a', 'b', 'c', 'aab', 'baa', 'bee', 'bee', 'bee', 'coo'],
+let randTable: { [key: string]: number[] } = {
+  a: [1, 2, 2, 2, 2, 3, 4, 5, 6, 7, 8, 9],
+  b: [1, 2, 3, 4, 5, 6],
+  c: [1, 2, 3, 4, 5, 6],
 };
 let testData: any[] = [];
 // Generate test data...
 for (let i = 0; i < 10000; i += 1) {
-  let output: { [key: string]: string } = {};
+  let output: { [key: string]: number } = {};
   for (let key in randTable) {
     output[key] = randTable[key][randTable[key].length * Math.random() | 0];
   }
@@ -23,14 +23,14 @@ for (let i = 0; i < 10000; i += 1) {
 let indexList: Index[] = [
   {
     name: 'a',
-    order: [{ key: 'a', type: 'string', order: false }],
+    order: [{ key: 'a', type: 'number', order: false }],
     unique: false,
     cardinality: 0,
     count: 0,
   },
   {
     name: 'b',
-    order: [{ key: 'b', type: 'string', order: false }],
+    order: [{ key: 'b', type: 'number', order: false }],
     unique: false,
     cardinality: 0,
     count: 0,
@@ -38,8 +38,8 @@ let indexList: Index[] = [
   {
     name: 'a_b',
     order: [
-      { key: 'a', type: 'string', order: false },
-      { key: 'b', type: 'string', order: false },
+      { key: 'a', type: 'number', order: false },
+      { key: 'b', type: 'number', order: false },
     ],
     unique: false,
     cardinality: 0,
@@ -48,9 +48,9 @@ let indexList: Index[] = [
   {
     name: 'a_b_c',
     order: [
-      { key: 'a', type: 'string', order: false },
-      { key: 'b', type: 'string', order: false },
-      { key: 'c', type: 'string', order: false },
+      { key: 'a', type: 'number', order: false },
+      { key: 'b', type: 'number', order: false },
+      { key: 'c', type: 'number', order: false },
     ],
     unique: false,
     cardinality: 0,

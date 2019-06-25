@@ -20,6 +20,9 @@ export function compare(a: IndexValue, b: IndexValue) {
     if (aValue === negativeInfinity && bValue === negativeInfinity) continue;
     if (aValue === negativeInfinity) return -1;
     if (bValue === negativeInfinity) return 1;
+    if (aValue == null && bValue == null) continue;
+    if (aValue == null) return -1;
+    if (bValue == null) return 1;
     if (typeof aValue === 'symbol' || typeof bValue === 'symbol') {
       throw new Error('Unexpected symbol');
     }
