@@ -134,6 +134,7 @@ function getIndexCandidates(
           values = output;
         }
       }
+      if (values == null) continue;
       console.log(values);
       // In order to calculate approximated cost, we can use table histogram if
       // available. Since linsql supports neither table histogram and index

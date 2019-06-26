@@ -87,6 +87,8 @@ function findMin<T, V>(
       min = mid + 1;
     } else if (comp > 0) {
       max = mid - 1;
+    } else if (mid !== min) {
+      max = mid;
     } else {
       return { pos: mid };
     }
@@ -109,6 +111,8 @@ function findMax<T, V>(
       min = mid + 1;
     } else if (comp > 0) {
       max = mid - 1;
+    } else if (mid !== max) {
+      min = mid + 1;
     } else {
       return { pos: mid };
     }
