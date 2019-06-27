@@ -126,7 +126,7 @@ let table: NormalTable = {
   columns: [],
   indexes: indexList,
   order: [],
-  count: 1000,
+  count: 10000,
   fetch: null,
   getStatistics: (name, low, high, lte, gte) => {
     let indexMeta = indexList.find(v => v.name === name);
@@ -147,4 +147,8 @@ console.dir(planTable('a', table, optimize(
 console.dir(planTable('a', table, optimize(
   getWhere('SELECT * FROM a WHERE a.a = 3 OR a.b = 4 OR a.a = 6;')),
   getOrderBy('SELECT 1 ORDER BY a.b;')),
+  { depth: null });
+
+console.dir(planTable('a', table, optimize(
+  getWhere('SELECT * FROM a WHERE a.a = 1 AND a.a = 2;'))),
   { depth: null });

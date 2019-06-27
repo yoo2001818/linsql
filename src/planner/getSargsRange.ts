@@ -195,6 +195,7 @@ export function traverseNode(
             // - If one of them is false, it's false.
             // - If all of them is true, it's true.
             if (current === false || child === false) {
+              result.push(false);
               continue;
             }
             if (current === true) {
@@ -228,6 +229,7 @@ export function traverseNode(
               outputColumns[key] = output;
             }
             if (alwaysFalse) {
+              result.push(false);
               continue;
             }
             for (let key in current) {
