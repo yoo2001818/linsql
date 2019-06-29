@@ -2,8 +2,10 @@ import { TableRef, Expression, SelectBasicStatement } from 'yasqlp';
 
 import { DependencySelectStatement } from './extractDependency';
 import { SelectPlan } from './type';
+import { NormalTable } from '../table';
 import optimize from '../expression/optimize';
 import Database from '../database';
+import planTable from './planTable';
 
 export default function plan(
   database: Database, stmt: DependencySelectStatement,
@@ -72,7 +74,12 @@ export default function plan(
       // TODO We should think about sending sargs data into subquery
       return plan(database, table.value);
     } else {
-      return planFetch(database, table.value, table.name, tableExpr);
+      const order = 'order' in stmt ? stmt.order : [];
+      return planTable(table.name,
+        // TODO Support more than NormalTable
+        table as any as NormalTable,
+        tableExpr,
+        order);
     }
   });
 
@@ -88,12 +95,13 @@ export default function plan(
         name: first.table.name || first.table.value.name,
         cost: 0,
         totalCost: 0,
+        rows: 0,
       };
     } else {
       current = plan(database, first.table.value);
     }
   } else {
-    current = { type: 'constant' };
+    current = { type: 'constant', cost: 0, totalCost: 0, rows: 1 };
   }
 
   // 3. Attach table-wise where.
@@ -104,6 +112,7 @@ export default function plan(
       input: current,
       cost: 0,
       totalCost: 0,
+      rows: 0,
     };
   }
 
@@ -115,6 +124,7 @@ export default function plan(
       input: current,
       cost: 0,
       totalCost: 0,
+      rows: 0,
     };
   }
   // 5. Running order by (pre)
@@ -122,65 +132,4 @@ export default function plan(
   // 7. Running having
   // 8. Running order by (post)
   return current;
-}
-
-// TODO Order by
-export function planFetch(
-  database: Database, tableRef: TableRef, name?: string, sarg?: Expression,
-): SelectPlan[] {
-  // It is fetcher's responsibility to actually filter the resources.
-  let table = database.getTable(tableRef.name);
-  if (table == null) {
-    throw new Error('Unknown table ' + tableRef.name);
-  }
-  if (sarg == null) {
-    // Just do full scan....
-    return [{
-      type: 'fullScan',
-      table: tableRef,
-      name: name || table.name,
-      cost: table.count,
-      totalCost: table.count,
-    }];
-  }
-  switch (table.type) {
-    case 'normal':
-      // Check if indices and PKs are usable.
-      // Unwrap sarg expression...
-      if (sarg.type === 'logical' && sarg.op === '&&') {
-        sarg.values.forEach((value) => {
-
-        });
-      } else if (sarg.type === 'compare') {
-      }
-      break;
-    case 'array':
-      // Check if binary search is possible.
-      break;
-    case 'file':
-      // TODO
-      break;
-  }
-  // Check SARGs related to the table's indices.
-  let input: SelectPlan = {
-    type: 'fullScan',
-    table: tableRef,
-    name: name || table.name, 
-    cost: 0,
-    totalCost: 0,
-  };
-  if (sarg != null) {
-    input = {
-      type: 'filter',
-      value: sarg,
-      input: input,
-      cost: 0,
-      totalCost: 0,
-    };
-  }
-  return [input];
-}
-
-export function planJoin(): SelectPlan {
-  return null;
 }
